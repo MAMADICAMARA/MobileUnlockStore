@@ -18,7 +18,3 @@
     }
   ]
 }
-    // BACKEND_URL: e.g. https://your-backend.example.com
-    // MONGO_URI, JWT_SECRET, CLIENT_ORIGINS, etc.
-  }
-}
