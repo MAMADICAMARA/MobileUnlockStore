@@ -16,7 +16,7 @@ connectDB().catch(err => {
 
 // CORS global
 app.use(cors({
-  origin: ['https://mobile-unlock-store.vercel.app', 'https://mobile-unlock-store.vercel.app'],
+  origin: ['https://mobile-unlock-store.vercel.app', 'http://localhost:5174'],
   credentials: true,
   methods: ['GET','POST','PUT','DELETE','OPTIONS']
 }));

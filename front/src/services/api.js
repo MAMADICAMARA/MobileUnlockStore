@@ -1,24 +1,30 @@
 import axios from 'axios';
 
-// lire la valeur brute depuis les env
+// Lire la valeur brute depuis les variables d'environnement
+// En dev: http://localhost:5000
+// En prod: https://mobileunlockstore.onrender.com
 const rawUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-// normaliser : supprimer slash(s) de fin, puis retirer un suffixe "/api" s'il existe
+// Normaliser : supprimer les slashs de fin
 let API_URL = rawUrl.replace(/\/+$/, '');
-API_URL = API_URL.replace(/\/api$/i, ''); // si quelqu'un a mis .../api, on enlève
 
-// utiliser l'URL normalisée (base backend), les appels frontend doivent utiliser '/api/...'
+// Toujours ajouter /api pour pointer vers les routes backend
+API_URL = API_URL + '/api';
+
+// Logs utiles pour vérifier en console
 console.log('🌍 Environment:', import.meta.env.MODE);
 console.log('📡 Normalized API base URL:', API_URL);
 
+// Création de l'instance Axios
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL, // ex: http://localhost:5000
+  baseURL: API_URL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
   }
 });
 
+// Intercepteur pour ajouter le token si présent
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -28,24 +34,19 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Ajout d'un intercepteur pour gérer les réponses et les erreurs
+// Intercepteur pour gérer les réponses et erreurs
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response) {
-      // Erreur de réponse du serveur (4xx, 5xx)
-      
-      // Gérer les erreurs d'authentification
+      // Erreur côté serveur (4xx, 5xx)
       if (error.response.status === 401) {
-        // Supprimer le token si l'authentification a échoué
         localStorage.removeItem('token');
-        // Rediriger vers la page de connexion si nécessaire
         window.location.href = '/login';
       }
-      
       throw error.response.data;
     } else if (error.request) {
-      // Erreur de requête (pas de réponse du serveur)
+      // Pas de réponse du serveur
       console.error('Erreur de connexion au serveur:', {
         message: error.message,
         config: error.config
@@ -56,7 +57,6 @@ api.interceptors.response.use(
       console.error('Erreur:', error.message);
       throw new Error('Une erreur inattendue s\'est produite. Veuillez réessayer.');
     }
-    return Promise.reject(error);
   }
 );
 
