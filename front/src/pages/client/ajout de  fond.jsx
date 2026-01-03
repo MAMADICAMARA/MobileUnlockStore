@@ -28,7 +28,7 @@ const AddFundsPage = () => {
   useEffect(() => {
     if (user?.role === 'admin') {
       alert("Un administrateur ne peut pas ajouter de fond.");
-      navigate('/admin/dashboard');
+      navigate('/api/admin/dashboard');
     }
   }, [user, navigate]);
 

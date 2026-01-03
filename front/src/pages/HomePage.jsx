@@ -151,7 +151,7 @@ const HomePage = () => {
                 <div key={testimonial.id} className="bg-gray-50 p-6 rounded-lg shadow-sm">
                   <p className="text-gray-600 italic mb-4">"{testimonial.quote}"</p>
                   <div className="flex items-center">
-                    <img src={testimonial.avatar} alt={testimonial.name} className="w-12 h-12 rounded-full mr-4" />
+                    <img src="/logo.png" alt="Logo" />
                     <div>
                       <p className="font-bold">{testimonial.name}</p>
                     </div>

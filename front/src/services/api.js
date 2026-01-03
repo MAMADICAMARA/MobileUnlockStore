@@ -12,7 +12,7 @@ console.log('🌍 Environment:', import.meta.env.MODE);
 console.log('📡 Normalized API base URL:', API_URL);
 
 const api = axios.create({
-  baseURL: API_URL, // ex: http://localhost:5000
+  baseURL: import.meta.env.VITE_API_URL, // ex: http://localhost:5000
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'

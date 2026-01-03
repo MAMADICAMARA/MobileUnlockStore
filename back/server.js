@@ -16,12 +16,12 @@ connectDB().catch(err => {
 
 // CORS global
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174'],
+  origin: ['https://mobile-unlock-store.vercel.app', 'https://mobile-unlock-store.vercel.app'],
   credentials: true,
   methods: ['GET','POST','PUT','DELETE','OPTIONS']
 }));
 
-console.log('✅ CORS OK: localhost:5173,5174');
+console.log('✅ CORS OK: https://mobile-unlock-store.vercel.app');
 
 // Parsers
 app.use(express.json({ limit: '10mb' }));
@@ -33,5 +33,5 @@ app.use(appRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`🚀 http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });

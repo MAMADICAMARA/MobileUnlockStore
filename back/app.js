@@ -65,7 +65,7 @@ app.get('/', (req, res) => {
 });
 
 // Route de test et healthcheck de l'API
-app.get('/api', (req, res) => {
+app.get('/', (req, res) => {
   res.json({ 
     status: 'success',
     message: 'API is running',
@@ -81,7 +81,7 @@ app.get('/api', (req, res) => {
 // Route publique de résumé du tableau de bord
 // Essaie de récupérer des métriques réelles depuis la BDD via les modèles disponibles.
 // Tolérante : si un modèle est absent ou une erreur survient, on renvoie 0 pour la métrique.
-app.get('/api/dashboard', async (req, res, next) => {
+app.get('api/dashboard', async (req, res, next) => {
   try {
     const summary = {
       usersCount: 0,

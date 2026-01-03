@@ -9,66 +9,66 @@ const adminService = {
   /**
    * Récupère tous les utilisateurs (clients).
    */
-  getAllUsers: () => api.get('/admin/users'),
+  getAllUsers: () => api.get('/api/admin/users'),
 
   // --- Services ---
   /**
    * Récupère tous les services.
    */
-  getAllServices: () => api.get('/admin/services'),
+  getAllServices: () => api.get('/api/admin/services'),
   /**
    * Crée un nouveau service.
    * @param {object} serviceData - Les données du service à créer.
    */
-  createService: (serviceData) => api.post('/admin/services', serviceData),
+  createService: (serviceData) => api.post('/api/admin/services', serviceData),
   /**
    * Met à jour un service existant.
    * @param {string} serviceId - L'ID du service à mettre à jour.
    * @param {object} serviceData - Les nouvelles données du service.
    */
-  updateService: (serviceId, serviceData) => api.put(`/admin/services/${serviceId}`, serviceData),
+  updateService: (serviceId, serviceData) => api.put(`/api/admin/services/${serviceId}`, serviceData),
   /**
    * Supprime un service.
    * @param {string} serviceId - L'ID du service à supprimer.
    */
-  deleteService: (serviceId) => api.delete(`/admin/services/${serviceId}`),
+  deleteService: (serviceId) => api.delete(`/apa/admin/services/${serviceId}`),
 
   // --- Commandes ---
   /**
    * Récupère toutes les commandes pour l'admin, avec filtres possibles.
    * @param {object} [filters] - Les filtres à appliquer (ex: { status: 'En cours', search: '...' }).
    */
-  getAllOrders: () => api.get('/admin/orders'),
+  getAllOrders: () => api.get('/api/admin/orders'),
   /**
    * Récupère tous les administrateurs.
    */
   getAdmins: () => {
-    return api.get('/admin/users?role=admin');
+    return api.get('/api/admin/users?role=admin');
   },
   /**
    * Met à jour le statut d'une commande.
    * @param {string} orderId - L'ID de la commande.
    * @param {string} status - Le nouveau statut.
    */
-  updateOrderStatus: (orderId, status) => api.put(`/admin/orders/${orderId}/status`, { status }),
+  updateOrderStatus: (orderId, status) => api.put(`/api/admin/orders/${orderId}/status`, { status }),
 
   // --- Tickets ---
   /**
    * Récupère tous les tickets de support.
    */
-  getAllTickets: () => api.get('/admin/tickets'),
+  getAllTickets: () => api.get('/api/admin/tickets'),
 
   // --- Paiements ---
   /**
    * Récupère tous les paiements.
    */
-  getAllPayments: () => api.get('/admin/payments'),
+  getAllPayments: () => api.get('/api/admin/payments'),
 
   // --- Licences ---
   /**
    * Récupère toutes les licences.
    */
-  getAllLicenses: () => api.get('/admin/licenses'),
+  getAllLicenses: () => api.get('/api/admin/licenses'),
 
   // --- Statistiques du tableau de bord ---
   /**
@@ -76,7 +76,7 @@ const adminService = {
    */
   getDashboardStats: () => {
     const token = localStorage.getItem('token');
-    return api.get('/admin/dashboard-stats', {
+    return api.get('/api/admin/dashboard-stats', {
       headers: { Authorization: `Bearer ${token}` }
     });
   },
@@ -87,7 +87,7 @@ const adminService = {
    * @param {object} data - Les données de rechargement (email et montant).
    */
   rechargeUserBalance: async (data) => {
-    const response = await api.post('/admin/recharge-balance', data);
+    const response = await api.post('/api/admin/recharge-balance', data);
     return response.data;
   },
 
@@ -97,7 +97,7 @@ const adminService = {
    * @param {object} data - Contient email et nouveau rôle
    */
   changeUserRole: async (data) => {
-    const response = await api.post('/admin/change-role', data);
+    const response = await api.post('/api/admin/change-role', data);
     return response.data;
   },
 
@@ -105,7 +105,7 @@ const adminService = {
    * Récupère la liste des employés
    */
   getAllEmployees: async () => {
-    const response = await api.get('/admin/employees');
+    const response = await api.get('/api/admin/employees');
     return response.data;
   },
 };
