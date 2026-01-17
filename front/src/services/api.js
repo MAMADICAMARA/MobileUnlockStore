@@ -3,7 +3,7 @@ import axios from 'axios';
 // Lire la valeur brute depuis les variables d'environnement
 // En dev: http://localhost:5000
 // En prod: https://mobileunlockstore.onrender.com
-const rawUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const rawUrl = import.meta.env.MODE === 'development' ? 'http://localhost:5000' : (import.meta.env.VITE_API_URL || 'http://localhost:5000');
 
 // Normaliser : supprimer les slashs de fin
 let API_URL = rawUrl.replace(/\/+$/, '');
@@ -15,7 +15,7 @@ console.log('📡 Normalized API base URL:', API_URL);
 // Création de l'instance Axios
 // ⚠️ Ici on ne rajoute PAS /api, car on suppose que VITE_API_URL contient déjà la bonne base
 const api = axios.create({
-  baseURL: API_URL,   // Exemple: http://localhost:5000 ou https://mobileunlockstore.onrender.com/api
+  baseURL: API_URL ,   // Exemple: http://localhost:5000 ou https://mobileunlockstore.onrender.com/api
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
