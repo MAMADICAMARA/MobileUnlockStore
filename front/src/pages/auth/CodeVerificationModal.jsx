@@ -47,7 +47,7 @@ const CodeVerificationModal = ({ isOpen, email, onVerify, onResend, onClose, typ
             placeholder="Code à 6 chiffres"
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            className="w-full px-4 py-2 border rounded-md"
+            className="w-full px-4 py-2 bg-gray-500 text-white-500 border rounded-md"
             required
           />
           {error && <p className="text-red-500 text-sm">{error}</p>}

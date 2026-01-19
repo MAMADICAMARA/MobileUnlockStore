@@ -93,7 +93,7 @@ const AddFundsPage = () => {
         return (
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">Adresse email PayPal</label>
-            <input type="email" required value={details.email || ''} onChange={e => setDetails({ ...details, email: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+            <input type="email" required value={details.email || ''} onChange={e => setDetails({ ...details, email: e.target.value })} className="w-full px-3 py-2 border text-black-500 border-gray-300 rounded-md" />
           </div>
         );
       case 'visa':
@@ -102,15 +102,15 @@ const AddFundsPage = () => {
           <>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">Numéro de carte</label>
-              <input type="text" required value={details.card || ''} onChange={e => setDetails({ ...details, card: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+              <input type="text" required value={details.card || ''} onChange={e => setDetails({ ...details, card: e.target.value })} className="w-full px-3 py-2  text-black-500 border-gray-300 rounded-md" />
             </div>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">Date d'expiration</label>
-              <input type="text" required placeholder="MM/AA" value={details.expiry || ''} onChange={e => setDetails({ ...details, expiry: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+              <input type="text" required placeholder="MM/AA" value={details.expiry || ''} onChange={e => setDetails({ ...details, expiry: e.target.value })} className="w-full px-3 py-2  text-black-500 border-gray-300 rounded-md" />
             </div>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">CVC</label>
-              <input type="text" required value={details.cvc || ''} onChange={e => setDetails({ ...details, cvc: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+              <input type="text" required value={details.cvc || ''} onChange={e => setDetails({ ...details, cvc: e.target.value })} className="w-full px-3 py-2 border text-black-500 border-gray-300 rounded-md" />
             </div>
           </>
         );
@@ -118,7 +118,7 @@ const AddFundsPage = () => {
         return (
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">Adresse crypto Binance</label>
-            <input type="text" required value={details.wallet || ''} onChange={e => setDetails({ ...details, wallet: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+            <input type="text" required value={details.wallet || ''} onChange={e => setDetails({ ...details, wallet: e.target.value })} className="w-full px-3 py-2 text-black-500 border border-gray-300 rounded-md" />
           </div>
         );
       default:
@@ -137,7 +137,7 @@ const AddFundsPage = () => {
         </div>
         <form onSubmit={handleAddFunds} className="space-y-6">
           <div className="mb-6">
-            <label htmlFor="custom-amount" className="block text-sm font-medium text-gray-700 mb-2">Montant à ajouter</label>
+            <label htmlFor="custom-amount" className="block text-sm font-medium text-black-500 mb-2">Montant à ajouter</label>
             <input
               type="number"
               id="custom-amount"

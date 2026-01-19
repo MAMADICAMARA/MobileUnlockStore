@@ -49,9 +49,9 @@ const PaymentsHistoryPage = () => {
               {payments.map(payment => (
                 <tr key={payment._id}>
                   <td className="px-6 py-4">{formatDate(payment.createdAt)}</td>
-                  <td className="px-6 py-4 text-right font-semibold">{payment.amount.toFixed(2)} €</td>
-                  <td className="px-6 py-4">{payment.type}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-right text-black-500 font-semibold">{payment.amount.toFixed(2)} €</td>
+                  <td className="px-6 py-4 text-black-500">{payment.type}</td>
+                  <td className="px-6 py-4 text-black-500">
                     <StatusBadge status={payment.status} />
                   </td>
                 </tr>

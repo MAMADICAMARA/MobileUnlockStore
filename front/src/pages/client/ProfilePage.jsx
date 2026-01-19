@@ -187,11 +187,11 @@ const ProfilePage = () => {
           <form onSubmit={handleProfileUpdate} className="space-y-6">
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700">Nom complet</label>
-              <input type="text" id="name" value={name} onChange={(e) => setName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" />
+              <input type="text" id="name" value={name} onChange={(e) => setName(e.target.value)} className="mt-1 block w-full px-3 py-2 border text-blue-500 border-gray-300 rounded-md" />
             </div>
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">Adresse e-mail (non modifiable)</label>
-              <input type="email" id="email" value={email} disabled className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100" />
+              <input type="email" id="email" value={email} disabled className="mt-1 block w-full px-3 py-2 border text-blue-500 border-gray-300 rounded-md bg-gray-100" />
             </div>
             {profileMessage.text && <p className={profileMessage.type === 'error' ? 'text-red-500' : 'text-green-500'}>{profileMessage.text}</p>}
             <button type="submit" disabled={loadingProfile} className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
@@ -206,15 +206,15 @@ const ProfilePage = () => {
           <form onSubmit={handlePasswordChange} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700">Mot de passe actuel</label>
-              <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" />
+              <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required className="mt-1 block w-full px-3 py-2 text-blue-700 border border-gray-300 rounded-md" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Nouveau mot de passe</label>
-              <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" />
+              <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required className="mt-1 block w-full px-3 py-2 text-blue-700 border border-gray-300 rounded-md" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Confirmer le nouveau mot de passe</label>
-              <input type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" />
+              <input type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} required className="mt-1 block w-full px-3 py-2 text-blue-700 border border-gray-300 rounded-md" />
             </div>
             {passwordMessage.text && <p className={passwordMessage.type === 'error' ? 'text-red-500' : 'text-green-500'}>{passwordMessage.text}</p>}
             <button type="submit" disabled={loadingPassword} className="w-full bg-gray-700 text-white py-2 rounded-md hover:bg-gray-800 disabled:bg-gray-400">

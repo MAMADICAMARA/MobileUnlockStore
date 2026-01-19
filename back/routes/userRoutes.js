@@ -7,7 +7,7 @@ const { protect } = require('../middleware/authMiddleware');
 
 // @route   GET /api/users/profile
 // @desc    Récupérer le profil de l'utilisateur connecté
-router.get('/api/user/profile', protect, getProfile);
+router.get('/api/auth/profile', protect, getProfile);
 
 // @route   PUT /api/users/profile
 // @desc    Mettre à jour le profil utilisateur

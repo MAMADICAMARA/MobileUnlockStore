@@ -91,9 +91,9 @@ const OrdersPage = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {sortedOrders.map(order => (
                   <tr key={order._id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.serviceName}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(order.date)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <td className="px-6 py-4 whitespace-nowrap bg-white text-sm font-medium text-gray-900">{order.serviceName}</td>
+                    <td className="px-6 py-4 whitespace-nowrap bg-white text-sm text-gray-500">{formatDate(order.date)}</td>
+                    <td className="px-6 py-4 text-black-500 whitespace-nowrap text-sm">
                       <StatusBadge status={order.status} />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold">{typeof order.price === 'number' ? `${order.price.toFixed(2)} €` : 'N/A'}</td>

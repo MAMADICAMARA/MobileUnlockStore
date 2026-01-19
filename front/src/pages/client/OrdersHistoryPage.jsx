@@ -62,8 +62,8 @@ const OrdersHistoryPage = () => {
                 onClick={() => setFilterStatus(tab)}
                 className={`px-4 py-2 rounded-md text-sm font-medium ${
                   filterStatus === tab
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 border'
+                    ? 'bg-blue-600 text-black-500'
+                    : 'bg-white text-black-500 border'
                 }`}
               >
                 {tab}
@@ -76,7 +76,7 @@ const OrdersHistoryPage = () => {
             placeholder="Rechercher un service..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            className="px-4 py-2 border rounded-lg w-full md:w-64"
+            className="px-4 py-2 border text-black-500 rounded-lg w-full md:w-64"
           />
         </div>
 
@@ -104,7 +104,7 @@ const OrdersHistoryPage = () => {
                         {order?.serviceName || "Service inconnu"}
                       </td>
 
-                      <td className="px-6 py-4 text-gray-600">
+                      <td className="px-6 py-4 text-blue-700">
                         {order?.createdAt
                           ? new Date(order.createdAt).toLocaleString()
                           : "—"}
@@ -126,14 +126,14 @@ const OrdersHistoryPage = () => {
                         </span>
                       </td>
 
-                      <td className="px-6 py-4 text-right font-bold">
+                      <td className="px-6 py-4 text-blue-700 text-right font-bold">
                         {order?.price ? order.price.toFixed(2) + " €" : "—"}
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
+                    <td colSpan={4} className="px-6 py-4 text-center text-black-500">
                       Aucune commande trouvée.
                     </td>
                   </tr>

@@ -21,7 +21,6 @@ app.use(cors({
   methods: ['GET','POST','PUT','DELETE','OPTIONS']
 }));
 
-console.log('✅ CORS OK: https://mobile-unlock-store.vercel.app');
 
 // Parsers
 app.use(express.json({ limit: '10mb' }));
