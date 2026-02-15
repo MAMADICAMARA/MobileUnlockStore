@@ -10,11 +10,11 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "${BACKEND_URL}/api/$1"
+      "dest": "https://mobileunlockstore.onrender.com/api/$1"
     },
     {
       "src": "/(.*)",
-      "dest": "/index.html"
+      "dest": "/dist/index.html"
     }
   ]
 }
