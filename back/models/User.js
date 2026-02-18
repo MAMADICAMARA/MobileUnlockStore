@@ -34,13 +34,21 @@ const UserSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
-  signupCode: { type: String },
-  signupCodeExpires: { type: Date },
-  resetCode: { type: String },
-  resetCodeExpires: { type: Date },
-  otpCode: { type: String },
-  otpExpires: { type: Date },
-  isActive: { type: Boolean, default: false },
+
+  // ────────────────────────────── OTP / CODES EN PAUSE ──────────────────────────────
+  // signupCode: { type: String },
+  // signupCodeExpires: { type: Date },
+  // resetCode: { type: String },
+  // resetCodeExpires: { type: Date },
+  // otpCode: { type: String },
+  // otpExpires: { type: Date },
+  // ────────────────────────────────────────────────────────────────────────────────
+
+  isActive: { 
+    type: Boolean, 
+    default: true      // ← forcé à true pour bypass la vérification email temporairement
+    // default: false  // ← ancienne valeur (commentée)
+  },
 }, {
   timestamps: true, // Ajoute automatiquement les champs createdAt et updatedAt
 });

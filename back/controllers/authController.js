@@ -26,7 +26,9 @@ const register = async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'Cet email est déjà utilisé.' });
     }
 
-    const code = generateOtp();
+    // ────────────────────────────── OTP / EMAIL EN PAUSE ──────────────────────────────
+    // const code = generateOtp();
+    // ────────────────────────────────────────────────────────────────────────────────
 
     const user = await User.create({
       name,
@@ -34,11 +36,14 @@ const register = async (req, res) => {
       password,
       role: 'user',
       balance: 0,
-      signupCode: code,
-      signupCodeExpires: Date.now() + 5 * 60 * 1000,
-      isActive: false
+      // signupCode: code,                    // ← COMMENTÉ
+      // signupCodeExpires: Date.now() + 5 * 60 * 1000,  // ← COMMENTÉ
+      isActive: true                             // ← forcé à true pour bypass vérif email temporairement
+      // isActive: false                    // ← ancienne valeur
     });
 
+    // ────────────────────────────── OTP / EMAIL EN PAUSE ──────────────────────────────
+    /*
     try {
       await sendEmail(
         user.email,
@@ -49,8 +54,14 @@ const register = async (req, res) => {
     } catch (mailErr) {
       console.error("Erreur envoi email inscription:", mailErr);
     }
+    */
+    // ────────────────────────────────────────────────────────────────────────────────
 
-    res.status(201).json({ status: 'success', message: 'Code d\'inscription envoyé à votre email.' });
+    res.status(201).json({ 
+      status: 'success', 
+      message: 'Inscription réussie.'   // ← message adapté (plus de code à envoyer)
+      // message: 'Code d\'inscription envoyé à votre email.'
+    });
   } catch (error) {
     console.error("Erreur register:", error);
     res.status(500).json({ status: 'error', message: 'Erreur serveur lors de l\'inscription.' });
@@ -59,6 +70,13 @@ const register = async (req, res) => {
 
 // ---------------- VERIFY SIGNUP CODE ----------------
 const verifySignupCode = async (req, res) => {
+  // Fonction mise en pause temporairement
+  res.status(200).json({ 
+    status: 'info', 
+    message: 'Vérification par code temporairement désactivée (inscription directe).' 
+  });
+
+  /*
   const { email, code } = req.body;
   try {
     const user = await User.findOne({ email });
@@ -74,6 +92,7 @@ const verifySignupCode = async (req, res) => {
     console.error("verifySignupCode error:", error);
     res.status(500).json({ status: 'error', message: 'Erreur serveur.' });
   }
+  */
 };
 
 // ---------------- LOGIN ----------------
@@ -89,49 +108,55 @@ const login = async (req, res) => {
     if (typeof user.matchPassword !== 'function') {
       return res.status(500).json({ status: 'error', message: 'Erreur serveur: méthode de validation de mot de passe indisponible.' });
     }
+
     const passwordMatch = await user.matchPassword(password);
     if (!passwordMatch) {
       return res.status(401).json({ status: 'error', message: 'Email ou mot de passe incorrect.' });
     }
 
+    // ────────────────────────────── OTP / EMAIL EN PAUSE ──────────────────────────────
+    /*
     const useOtp = process.env.ENABLE_LOGIN_OTP !== 'false';
 
-    if (!useOtp) {
-      const token = generateToken(user._id, user.role, user.email, user.name, user.balance);
-      return res.status(200).json({
-        status: 'success',
-        message: 'Connexion réussie.',
-        token,
-        user: { _id: user._id, name: user.name, email: user.email, role: user.role, balance: user.balance }
-      });
-    }
+    if (useOtp) {
+      if (user.otpCode && user.otpExpires && user.otpExpires > Date.now()) {
+        return res.status(200).json({
+          status: 'otp_sent',
+          message: 'Un code a déjà été envoyé à cet email. Vérifiez votre boîte de réception.'
+        });
+      }
 
-    if (user.otpCode && user.otpExpires && user.otpExpires > Date.now()) {
+      const otp = generateOtp();
+      user.otpCode = otp;
+      user.otpExpires = Date.now() + 5 * 60 * 1000;
+      await user.save();
+
+      try {
+        await sendEmail(
+          user.email,
+          "Code OTP de connexion",
+          `Bonjour ${user.name},\nVotre code de connexion est : ${otp}\nIl expire dans 5 minutes.`
+        );
+        console.log("Email OTP envoyé à:", user.email, "Code:", otp);
+      } catch (mailErr) {
+        console.error("Erreur envoi email OTP:", mailErr);
+      }
+
       return res.status(200).json({
         status: 'otp_sent',
-        message: 'Un code a déjà été envoyé à cet email. Vérifiez votre boîte de réception.'
+        message: 'Le code a été envoyé à votre adresse email. Veuillez vérifier votre boîte de réception.'
       });
     }
+    */
+    // ────────────────────────────────────────────────────────────────────────────────
 
-    const otp = generateOtp();
-    user.otpCode = otp;
-    user.otpExpires = Date.now() + 5 * 60 * 1000;
-    await user.save();
-
-    try {
-      await sendEmail(
-        user.email,
-        "Code OTP de connexion",
-        `Bonjour ${user.name},\nVotre code de connexion est : ${otp}\nIl expire dans 5 minutes.`
-      );
-      console.log("Email OTP envoyé à:", user.email, "Code:", otp);
-    } catch (mailErr) {
-      console.error("Erreur envoi email OTP:", mailErr);
-    }
-
+    // Connexion directe (sans OTP)
+    const token = generateToken(user._id, user.role, user.email, user.name, user.balance);
     return res.status(200).json({
-      status: 'otp_sent',
-      message: 'Le code a été envoyé à votre adresse email. Veuillez vérifier votre boîte de réception.'
+      status: 'success',
+      message: 'Connexion réussie.',
+      token,
+      user: { _id: user._id, name: user.name, email: user.email, role: user.role, balance: user.balance }
     });
   } catch (error) {
     console.error("login error:", error);
@@ -141,6 +166,13 @@ const login = async (req, res) => {
 
 // ---------------- VERIFY OTP ----------------
 const verifyOtp = async (req, res) => {
+  // Fonction mise en pause temporairement
+  res.status(200).json({ 
+    status: 'info', 
+    message: 'Vérification OTP temporairement désactivée.' 
+  });
+
+  /*
   const { email, otp } = req.body;
   try {
     const user = await User.findOne({ email });
@@ -156,12 +188,19 @@ const verifyOtp = async (req, res) => {
     console.error("verifyOtp error:", error);
     res.status(500).json({ status: 'error', message: 'Erreur serveur.' });
   }
+  */
 };
 
 // ---------------- RESEND OTP ----------------
 const resendOtp = async (req, res) => {
-  const { email } = req.body;
+  // Fonction mise en pause temporairement
+  res.status(200).json({ 
+    status: 'info', 
+    message: 'Renvoi OTP temporairement désactivé.' 
+  });
 
+  /*
+  const { email } = req.body;
   try {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ status: 'error', message: 'Utilisateur non trouvé.' });
@@ -187,6 +226,7 @@ const resendOtp = async (req, res) => {
     console.error("resendOtp error:", error);
     res.status(500).json({ status: 'error', message: 'Erreur serveur lors du renvoi OTP.' });
   }
+  */
 };
 
 // ---------------- GET PROFILE ----------------

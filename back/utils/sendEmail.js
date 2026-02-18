@@ -1,39 +1,68 @@
 // back/utils/sendEmail.js
-const nodemailer = require('nodemailer');
+const Brevo = require('@getbrevo/brevo');
+require('dotenv').config();
 
-const sendEmail = async (to, subject, text) => {
-  // 1. Créer un transporteur dynamique suivant .env
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: (process.env.SMTP_SECURE === 'true') || (process.env.SMTP_PORT === '465'), // true pour 465
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS
-    },
-    // Option TLS utile en dev si votre environnement bloque les certificats
-    tls: {
-      rejectUnauthorized: false
-    }
-  });
+// ──────────────────────────────────────────────────────────────
+// FONCTIONNALITÉ OTP / EMAIL MISE EN PAUSE (18/02/2026)
+// Pour réactiver : décommenter le code Brevo ci-dessous
+// ──────────────────────────────────────────────────────────────
 
-  // 2. Définir les options de l'e-mail
-  const mailOptions = {
-    from: `"GSM Guinea Unlock Store" <${process.env.SMTP_USER}>`,
-    to,
-    subject,
-    text
-  };
+/*
+// Crée une instance de l'API Transactional Emails
+const apiInstance = new Brevo.TransactionalEmailsApi();
 
-  // 3. Envoyer l'e-mail
+// Configure la clé API (méthode correcte)
+apiInstance.setApiKey(process.env.BREVO_API_KEY);
+*/
+
+/**
+ * Fonction pour envoyer un OTP par email
+ * @param {string} toEmail - Adresse email du destinataire
+ * @param {string} otp - Code OTP à envoyer
+ */
+async function sendOTP(toEmail, otp) {
+  // ────────────────────────────── PAUSE ACTIVE ──────────────────────────────
+  console.log(`[OTP EN PAUSE] Appel ignoré pour ${toEmail} - Code: ${otp}`);
+  return true;   // Simule un succès pour ne pas casser la logique du controller
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /*
   try {
-    await transporter.sendMail(mailOptions);
-    console.log('Email envoyé avec succès');
+    const result = await apiInstance.sendTransacEmail({
+      sender: { 
+        name: "MobileUnlockStore", 
+        email: "mamadi.mobileunlock@gmail.com" // ⚠️ Mets ici une adresse validée dans Brevo
+      },
+      to: [{ email: toEmail }],
+      subject: "Votre code OTP - MobileUnlockStore",
+      htmlContent: `
+        <html>
+          <body style="font-family: Arial, sans-serif; padding: 20px;">
+            <h2>Bonjour ! 👋</h2>
+            <p>Votre code de connexion :</p>
+            <h1 style="background: #f1f5f9; padding: 15px; text-align: center; letter-spacing: 6px;">
+              ${otp}
+            </h1>
+            <p>Valide 10 minutes. Ne partagez pas !</p>
+            <p>Team MobileUnlockStore</p>
+          </body>
+        </html>
+      `,
+      textContent: `Code OTP : ${otp}\nValide 10 min.\nNe partagez pas !`
+    });
+
+    console.log('✅ OTP envoyé via Brevo !');
+    console.log('Réponse Brevo:', JSON.stringify(result, null, 2));
+    return true;
   } catch (error) {
-    console.error("Erreur lors de l'envoi de l'e-mail:", error);
-    // Propager l'erreur pour que le contrôleur puisse en tenir compte
+    console.error('❌ ERREUR BREVO (détaillée) :');
+    console.error('Message:', error.message);
+    if (error.response) {
+      console.error('Réponse API:', error.response.body || error.response);
+    }
     throw error;
   }
-};
+  */
+}
 
-module.exports = sendEmail;
+module.exports = { sendOTP };
