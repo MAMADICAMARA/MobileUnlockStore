@@ -3,26 +3,23 @@ import { useState } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
 import NotificationBell from '../NotificationBell';
-import { Menu, X } from 'lucide-react'; // ← installe lucide-react si pas déjà fait : npm install lucide-react
+import { Menu, X } from 'lucide-react'; // npm install lucide-react si pas déjà installé
 
-/**
- * Layout pour l'espace administration.
- * Sidebar → hamburger menu sur mobile (< 768px)
- */
 const AdminLayout = () => {
   const { user, logout } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const navLinkClass = ({ isActive }) =>
     isActive
-      ? 'flex items-center gap-3 py-3 px-4 rounded-lg bg-blue-700/20 text-blue-300 font-semibold text-base'
-      : 'flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-blue-800/30 text-gray-200 font-medium text-base transition-colors';
+      ? 'flex items-center gap-3 py-3 px-4 rounded-lg bg-blue-700/30 text-blue-300 font-semibold text-base'
+      : 'flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-blue-800/40 text-gray-200 font-medium text-base transition-colors';
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+  const closeSidebar = () => setIsSidebarOpen(false);
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-100">
-      {/* Sidebar mobile overlay + hamburger */}
+    <div className="flex min-h-screen bg-gray-50">
+      {/* SIDEBAR */}
       <aside
         className={`
           fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 shadow-2xl p-6 flex flex-col transform transition-transform duration-300 ease-in-out
@@ -30,10 +27,13 @@ const AdminLayout = () => {
           md:static md:translate-x-0 md:w-72 md:shadow-none md:bg-slate-800
         `}
       >
-        {/* Header sidebar */}
+        {/* Titre + bouton fermer (mobile only) */}
         <div className="flex items-center justify-between mb-8 md:hidden">
           <h2 className="text-2xl font-extrabold text-blue-400 tracking-wide">Admin</h2>
-          <button onClick={toggleSidebar} className="text-white p-2 rounded hover:bg-slate-700">
+          <button
+            onClick={closeSidebar}
+            className="text-gray-300 hover:text-white p-2 rounded hover:bg-slate-700"
+          >
             <X size={28} />
           </button>
         </div>
@@ -61,7 +61,7 @@ const AdminLayout = () => {
           <NavLink to="/admin/employees" className={navLinkClass}>Employés</NavLink>
         </nav>
 
-        {/* Bouton déconnexion */}
+        {/* Déconnexion */}
         <button
           onClick={logout}
           className="mt-8 w-full py-3 px-4 rounded-lg bg-red-600/80 hover:bg-red-700 text-white font-semibold transition-colors"
@@ -74,26 +74,31 @@ const AdminLayout = () => {
         </div>
       </aside>
 
-      {/* Overlay mobile quand sidebar ouverte */}
+      {/* Overlay mobile (cliquer pour fermer) */}
       {isSidebarOpen && (
         <div
           className="fixed inset-0 bg-black/60 z-40 md:hidden"
-          onClick={toggleSidebar}
+          onClick={closeSidebar}
         />
       )}
 
       {/* Contenu principal */}
       <div className="flex-1 flex flex-col">
-        {/* Barre hamburger en haut sur mobile */}
+        {/* Header mobile avec hamburger */}
         <header className="bg-slate-800 shadow-md p-4 flex items-center justify-between md:hidden">
-          <button onClick={toggleSidebar} className="text-white p-2 rounded hover:bg-slate-700">
+          <button
+            onClick={toggleSidebar}
+            className="text-white p-2 rounded hover:bg-slate-700"
+          >
             <Menu size={28} />
           </button>
+
           <h1 className="text-xl font-bold text-blue-400">Admin</h1>
-          <div className="w-10" /> {/* espace pour équilibrer */}
+
+          <div className="w-10" /> {/* espace équilibré */}
         </header>
 
-        {/* Zone contenu */}
+        {/* Zone contenu (padding ajusté pour mobile) */}
         <main className="flex-1 p-4 md:p-8 overflow-auto">
           <Outlet />
         </main>
