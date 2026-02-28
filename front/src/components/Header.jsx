@@ -1,3 +1,4 @@
+//sur mon site MERN stack, apres la connexion avec succes je n'arrive pas a entrer dans http://localhost:5173/client/dashboard en cliquant sur Profil dans Header
 // src/components/Header.jsx
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';

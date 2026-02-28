@@ -1,95 +1,66 @@
 // src/pages/client/ProfilePage.jsx
 import { useState, useEffect } from 'react';
+import { 
+  User, 
+  Mail, 
+  Lock, 
+  Eye, 
+  EyeOff, 
+  Briefcase, 
+  Shield, 
+  Key,
+  CheckCircle,
+  AlertCircle,
+  Save,
+  RefreshCw
+} from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import userService from '../../services/userService';
-import CodeVerificationModal from '../auth/CodeVerificationModal'; // Importer le modal
+import CodeVerificationModal from '../auth/CodeVerificationModal';
 
-/**
- * Page de profil où l'utilisateur peut voir et mettre à jour ses informations.
- */
 const ProfilePage = () => {
   const { user } = useAuth();
-
-  // États pour l'affichage du code employé
   const [showEmployeeCode, setShowEmployeeCode] = useState(false);
   const [employeeCode, setEmployeeCode] = useState('');
-
-  // États pour les formulaires
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
-
-  // États pour les retours d'information
   const [profileMessage, setProfileMessage] = useState({ type: '', text: '' });
   const [passwordMessage, setPasswordMessage] = useState({ type: '', text: '' });
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [loadingPassword, setLoadingPassword] = useState(false);
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [employeeData, setEmployeeData] = useState(null);
+  const [activeTab, setActiveTab] = useState('profile');
 
-  // Charger les informations de l'employé si l'utilisateur est un employé
   useEffect(() => {
     const fetchEmployeeData = async () => {
-      if (!user) {
-        console.log('Pas d\'utilisateur connecté');
-        return;
-      }
+      if (!user) return;
       
       if (user.role === 'utilisateur-employer') {
         try {
-          console.log('Tentative de récupération des données employé...');
           const response = await userService.getEmployeeData();
-          console.log('Réponse reçue:', response.data);
-          
           if (response.data.success) {
             setEmployeeData(response.data);
-            if (response.data.employeeCode) {
-              console.log('Code employé trouvé:', response.data.employeeCode);
-              setEmployeeCode(response.data.employeeCode);
-            } else {
-              console.log('Pas de code employé dans la réponse');
-              setProfileMessage({ 
-                type: 'error', 
-                text: 'Code employé non disponible' 
-              });
-            }
-          } else {
-            console.log('Erreur dans la réponse:', response.data.error);
-            setProfileMessage({ 
-              type: 'error', 
-              text: response.data.error || 'Erreur lors du chargement des données employé' 
-            });
+            setEmployeeCode(response.data.employeeCode || '');
           }
         } catch (error) {
-          console.error('Erreur lors du chargement des données employé:', error?.response?.data || error);
-          setProfileMessage({ 
-            type: 'error', 
-            text: error?.response?.data?.error || 'Erreur lors du chargement des données employé' 
-          });
+          console.error('Erreur chargement données employé:', error);
         }
-      } else {
-        console.log('Utilisateur non employé:', user.role);
       }
     };
     fetchEmployeeData();
   }, [user]);
 
-  // Charger les informations de l'utilisateur au montage
   useEffect(() => {
     if (user) {
       setName(user.name || '');
       setEmail(user.email || '');
     }
-    // Alternativement, faire un appel API pour obtenir les données les plus fraîches
-    // userService.getProfile().then(response => {
-    //   setName(response.data.name);
-    //   setEmail(response.data.email);
-    // });
   }, [user]);
 
-  // Gérer la mise à jour des informations du profil
   const handleProfileUpdate = async (e) => {
     e.preventDefault();
     setLoadingProfile(true);
@@ -97,7 +68,8 @@ const ProfilePage = () => {
     try {
       const response = await userService.updateProfile({ name });
       setProfileMessage({ type: 'success', text: 'Profil mis à jour avec succès !' });
-      setName(response.data.name); // Mettre à jour le nom localement
+      setName(response.data.name);
+      setTimeout(() => setProfileMessage({ type: '', text: '' }), 3000);
     } catch (error) {
       setProfileMessage({ type: 'error', text: 'Erreur lors de la mise à jour.' });
     } finally {
@@ -105,27 +77,27 @@ const ProfilePage = () => {
     }
   };
 
-  // Gérer le changement de mot de passe
   const handlePasswordChange = async (e) => {
     e.preventDefault();
     if (newPassword !== confirmNewPassword) {
-      setPasswordMessage({ type: 'error', text: 'Les nouveaux mots de passe ne correspondent pas.' });
+      setPasswordMessage({ type: 'error', text: 'Les mots de passe ne correspondent pas.' });
       return;
     }
     setLoadingPassword(true);
     setPasswordMessage({ type: '', text: '' });
-    // Étape 1: Demander l'envoi du code de vérification
     try {
       await userService.sendPasswordChangeCode({ email: user.email });
-      setIsVerificationModalOpen(true); // Ouvre le modal
+      setIsVerificationModalOpen(true);
     } catch (error) {
-      setPasswordMessage({ type: 'error', text: error.response?.data?.message || 'Erreur lors de la demande de changement de mot de passe.' });
+      setPasswordMessage({ 
+        type: 'error', 
+        text: error.response?.data?.message || 'Erreur lors de la demande.' 
+      });
     } finally {
       setLoadingPassword(false);
     }
   };
 
-  // Gérer la vérification du code et la finalisation du changement de mot de passe
   const handleVerifyCode = async (email, code) => {
     setLoadingPassword(true);
     try {
@@ -136,94 +108,273 @@ const ProfilePage = () => {
       });
       setPasswordMessage({ type: 'success', text: 'Mot de passe changé avec succès !' });
       setIsVerificationModalOpen(false);
-      // Réinitialiser les champs
       setCurrentPassword('');
       setNewPassword('');
       setConfirmNewPassword('');
+      setTimeout(() => setPasswordMessage({ type: '', text: '' }), 3000);
     } catch (error) {
-      // L'erreur sera affichée dans le modal
       throw error;
     } finally {
       setLoadingPassword(false);
     }
   };
 
-  return (
-    <div>
-      <h1 className="text-3xl font-bold text-blue-700 mb-8">Mon Profil</h1>
+  const MessageAlert = ({ type, text }) => {
+    if (!text) return null;
+    const isSuccess = type === 'success';
+    return (
+      <div className={`flex items-center gap-2 p-3 rounded-lg ${
+        isSuccess ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+      } animate-slideDown`}>
+        {isSuccess ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
+        <span className="text-sm font-medium">{text}</span>
+      </div>
+    );
+  };
 
-      {/* Section Code Employé */}
-      {user?.role === 'utilisateur-employer' && (
-        <div className="mb-8 bg-blue-50 p-6 rounded-lg shadow-md">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl text-blue-700 font-bold">Code Employé</h2>
-            <button
-              onClick={() => setShowEmployeeCode(!showEmployeeCode)}
-              className="text-blue-600 hover:text-blue-800 font-medium" disabled={!employeeCode}
-            >
-              {showEmployeeCode ? 'Masquer' : 'Afficher'}
-            </button>
-          </div>
-          {showEmployeeCode && (
-            <div className="mt-4">
-              <div className="bg-white p-4 rounded-md border border-blue-200">
-                <p className="text-xl font-mono text-center text-blue-700 tracking-widest">
-                  {employeeCode || 'Chargement...'}
-                </p>
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* En-tête */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+          Mon Profil
+        </h1>
+        <p className="text-gray-500 mt-2">Gérez vos informations personnelles et votre sécurité</p>
+      </div>
+
+      {/* Onglets */}
+      <div className="flex gap-4 mb-8 border-b border-gray-200">
+        <button
+          onClick={() => setActiveTab('profile')}
+          className={`pb-4 px-1 font-medium text-sm transition-all relative ${
+            activeTab === 'profile'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Informations personnelles
+        </button>
+        <button
+          onClick={() => setActiveTab('security')}
+          className={`pb-4 px-1 font-medium text-sm transition-all relative ${
+            activeTab === 'security'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Sécurité
+        </button>
+      </div>
+
+      {/* Contenu principal */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Colonne de gauche - Avatar & Stats */}
+        <div className="lg:col-span-1">
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+            <div className="text-center">
+              <div className="relative inline-block">
+                <div className="w-24 h-24 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center mx-auto">
+                  <span className="text-3xl font-bold text-white">
+                    {name.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full border-4 border-white"></div>
               </div>
-              <p className="mt-2 text-sm text-gray-600">
-                Ce code est votre identifiant unique en tant qu'employé.
-              </p>
+              <h2 className="text-xl font-bold text-gray-900 mt-4">{name}</h2>
+              <p className="text-sm text-gray-500">{email}</p>
+              <div className="mt-4 inline-flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-full">
+                <Shield size={14} className="text-blue-600" />
+                <span className="text-xs font-medium text-blue-600">
+                  {user?.role === 'utilisateur-employer' ? 'Employé' : 'Utilisateur'}
+                </span>
+              </div>
+            </div>
+
+            {user?.role === 'utilisateur-employer' && employeeCode && (
+              <div className="mt-6 pt-6 border-t border-gray-100">
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                  Code Employé
+                </h3>
+                <div className="relative">
+                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <Briefcase size={18} className="text-blue-600" />
+                      <button
+                        onClick={() => setShowEmployeeCode(!showEmployeeCode)}
+                        className="text-blue-600 hover:text-blue-800 transition-colors"
+                      >
+                        {showEmployeeCode ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                    {showEmployeeCode ? (
+                      <p className="font-mono text-lg text-center text-blue-700 tracking-widest bg-white p-2 rounded-lg">
+                        {employeeCode}
+                      </p>
+                    ) : (
+                      <p className="text-center text-gray-400 text-sm py-2">
+                        ●●●●●●●●●●
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Colonne de droite - Formulaires */}
+        <div className="lg:col-span-2 space-y-6">
+          {activeTab === 'profile' && (
+            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                <User size={20} className="text-blue-600" />
+                Informations personnelles
+              </h2>
+              
+              <form onSubmit={handleProfileUpdate} className="space-y-5">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Nom complet
+                    </label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                      <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        placeholder="Votre nom"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Adresse e-mail
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                      <input
+                        type="email"
+                        value={email}
+                        disabled
+                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-500 cursor-not-allowed"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">L'adresse e-mail ne peut pas être modifiée</p>
+                  </div>
+                </div>
+
+                {profileMessage.text && <MessageAlert type={profileMessage.type} text={profileMessage.text} />}
+
+                <button
+                  type="submit"
+                  disabled={loadingProfile}
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-4 rounded-xl font-medium hover:from-blue-700 hover:to-indigo-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {loadingProfile ? (
+                    <>
+                      <RefreshCw size={18} className="animate-spin" />
+                      Mise à jour...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={18} />
+                      Mettre à jour le profil
+                    </>
+                  )}
+                </button>
+              </form>
             </div>
           )}
-          {!employeeCode && !profileMessage.text && <p className="mt-2 text-sm text-gray-500">Chargement des informations employé...</p>}
-        </div>
-      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Formulaire d'informations personnelles */}
-        <div className="bg-white p-8 rounded-lg shadow-md">
-          <h2 className="text-xl text-blue-700 font-bold mb-6">Informations personnelles</h2>
-          <form onSubmit={handleProfileUpdate} className="space-y-6">
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700">Nom complet</label>
-              <input type="text" id="name" value={name} onChange={(e) => setName(e.target.value)} className="mt-1 block w-full px-3 py-2 border text-blue-500 border-gray-300 rounded-md" />
-            </div>
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">Adresse e-mail (non modifiable)</label>
-              <input type="email" id="email" value={email} disabled className="mt-1 block w-full px-3 py-2 border text-blue-500 border-gray-300 rounded-md bg-gray-100" />
-            </div>
-            {profileMessage.text && <p className={profileMessage.type === 'error' ? 'text-red-500' : 'text-green-500'}>{profileMessage.text}</p>}
-            <button type="submit" disabled={loadingProfile} className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
-              {loadingProfile ? 'Mise à jour...' : 'Mettre à jour le profil'}
-            </button>
-          </form>
-        </div>
+          {activeTab === 'security' && (
+            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                <Lock size={20} className="text-blue-600" />
+                Changer le mot de passe
+              </h2>
 
-        {/* Formulaire de changement de mot de passe */}
-        <div className="bg-white p-8 rounded-lg shadow-md">
-          <h2 className="text-xl  text-blue-700 font-bold mb-6">Changer le mot de passe</h2>
-          <form onSubmit={handlePasswordChange} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Mot de passe actuel</label>
-              <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required className="mt-1 block w-full px-3 py-2 text-blue-700 border border-gray-300 rounded-md" />
+              <form onSubmit={handlePasswordChange} className="space-y-5">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Mot de passe actuel
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                      <input
+                        type="password"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        required
+                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        placeholder="••••••••"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Nouveau mot de passe
+                    </label>
+                    <div className="relative">
+                      <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        required
+                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        placeholder="••••••••"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Confirmer le nouveau mot de passe
+                    </label>
+                    <div className="relative">
+                      <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                      <input
+                        type="password"
+                        value={confirmNewPassword}
+                        onChange={(e) => setConfirmNewPassword(e.target.value)}
+                        required
+                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        placeholder="••••••••"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {passwordMessage.text && <MessageAlert type={passwordMessage.type} text={passwordMessage.text} />}
+
+                <button
+                  type="submit"
+                  disabled={loadingPassword}
+                  className="w-full bg-gradient-to-r from-gray-700 to-gray-800 text-white py-3 px-4 rounded-xl font-medium hover:from-gray-800 hover:to-gray-900 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {loadingPassword ? (
+                    <>
+                      <RefreshCw size={18} className="animate-spin" />
+                      Vérification en cours...
+                    </>
+                  ) : (
+                    <>
+                      <Lock size={18} />
+                      Changer le mot de passe
+                    </>
+                  )}
+                </button>
+              </form>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Nouveau mot de passe</label>
-              <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required className="mt-1 block w-full px-3 py-2 text-blue-700 border border-gray-300 rounded-md" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Confirmer le nouveau mot de passe</label>
-              <input type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} required className="mt-1 block w-full px-3 py-2 text-blue-700 border border-gray-300 rounded-md" />
-            </div>
-            {passwordMessage.text && <p className={passwordMessage.type === 'error' ? 'text-red-500' : 'text-green-500'}>{passwordMessage.text}</p>}
-            <button type="submit" disabled={loadingPassword} className="w-full bg-gray-700 text-white py-2 rounded-md hover:bg-gray-800 disabled:bg-gray-400">
-              {loadingPassword ? 'Changement...' : 'Changer le mot de passe'}
-            </button>
-          </form>
+          )}
         </div>
       </div>
-      {/* Modal de vérification de code */}
+
       <CodeVerificationModal
         isOpen={isVerificationModalOpen}
         email={user?.email}

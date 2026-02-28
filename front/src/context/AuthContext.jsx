@@ -1,3 +1,6 @@
+//voila le contenue de authcontext.jsx et useAuth.js
+
+//authcontext.jsx
 // src/context/AuthContext.jsx
 import { createContext, useState, useEffect, useContext, useCallback, useRef } from "react";
 import {jwtDecode} from "jwt-decode";
@@ -36,24 +39,39 @@ const AuthProvider = ({ children }) => {
     console.info("Utilisateur déconnecté.");
   }, []);
 
-  const login = useCallback((userData) => {
-    if (!userData) return;
-    const t = userData.token || userData.accessToken || "";
-    if (!t) return;
-    const raw = t.startsWith("Bearer ") ? t.slice(7) : t;
-    localStorage.setItem("token", raw);
-    setToken(raw);
-    setUser({
-      id: userData._id || userData.id || null,
-      name: userData.name || userData.fullName || "",
-      email: userData.email || "",
-      role: userData.role || "",
-      balance: userData.balance ?? 0,
-      // Désactiver la vérification email côté client : forcer le flag de confirmation
-      confirmed: true,
-      emailConfirmed: true,
-    });
-  }, []);
+ // src/context/AuthContext.jsx
+// Modifie la fonction login et l'initialisation
+
+const login = useCallback((userData) => {
+  if (!userData) return;
+  
+  console.log('[AuthContext] Login appelé avec:', userData);
+  
+  const t = userData.token || userData.accessToken || "";
+  if (!t) return;
+
+  const raw = t.startsWith("Bearer ") ? t.slice(7) : t;
+  localStorage.setItem("token", raw);
+
+  // 🔥 S'assurer que le rôle est défini
+  const userRole = userData.role || 'client';
+  
+  // Construire l'objet utilisateur
+  const userObject = {
+    id: userData._id || userData.id || null,
+    name: userData.name || userData.fullName || userData.username || userData.email?.split('@')[0] || "Utilisateur",
+    email: userData.email || "",
+    role: userRole,
+    balance: userData.balance ?? 0,
+  };
+
+  console.log('[AuthContext] Utilisateur créé avec rôle:', userRole);
+  
+  localStorage.setItem("user", JSON.stringify(userObject));
+  setToken(raw);
+  setUser(userObject);
+}, []);
+
 
   const updateUserBalance = useCallback((newBalance) => {
     setUser((cur) => (cur ? { ...cur, balance: newBalance } : cur));
@@ -90,27 +108,33 @@ const AuthProvider = ({ children }) => {
   }, [logout]);
 
   useEffect(() => {
-    const resetTimer = () => {
-      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
-      inactivityTimer.current = setTimeout(() => {
+  const raw = readStoredToken();
+  if (raw) {
+    const decoded = parseTokenSafe(raw);
+    if (decoded) {
+      if (decoded.exp && decoded.exp * 1000 < Date.now()) {
+        console.warn("Token expiré, déconnexion automatique.");
         logout();
-        try {
-          alert("Session expirée après 15 minutes d'inactivité. Veuillez vous reconnecter.");
-        } catch {
-          console.warn("Session expirée (alert échouée).");
-        }
-      }, 15 * 60 * 1000);
-    };
+      } else {
+        // ✅ Reconstruire user dès le montage
+        setUser({
+          id: decoded.id || decoded._id || null,
+          email: decoded.email || null,
+          role: decoded.role || null,
+          name: decoded.name || decoded.username || null,
+          balance: decoded.balance ?? 0,
+          confirmed: true,
+          emailConfirmed: true,
+        });
+        setToken(raw);
+      }
+    } else {
+      logout();
+    }
+  }
+  setLoading(false);
+}, [logout]);
 
-    const events = ["mousemove", "keydown", "scroll", "click", "touchstart"];
-    events.forEach((e) => window.addEventListener(e, resetTimer));
-    resetTimer();
-
-    return () => {
-      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
-      events.forEach((e) => window.removeEventListener(e, resetTimer));
-    };
-  }, [logout]);
 
   // eslint-disable-next-line no-unused-vars
   useEffect(() => {
@@ -119,21 +143,23 @@ const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider
-      value={{
-        user,
-        token,
-        isAuthenticated: !!user,
-        login,
-        logout,
-        updateUserBalance,
-        loading,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  value={{
+    user,
+    token,
+    isAuthenticated: !!user, // ✅ clé pour la redirection
+    login,
+    logout,
+    updateUserBalance,
+    loading,
+  }}
+>
+  {children}
+</AuthContext.Provider>
+)
 };
 
 export const useAuth = () => useContext(AuthContext);
 export { AuthProvider };
 export default AuthProvider;
+
+
