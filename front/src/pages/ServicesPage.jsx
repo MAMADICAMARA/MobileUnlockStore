@@ -11,14 +11,16 @@ import {
   X,
   ChevronRight,
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  Server,
+  Wifi
 } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import ServiceCard from '../components/ServiceCard';
 import ServiceModal from '../components/ServiceModal';
 import serviceService from '../services/serviceService';
-import useAuth from '../hooks/useAuth';
+import { useAuth } from '../context/AuthContext';
 
 const ServicesPage = () => {
   const { user, isAuthenticated } = useAuth();
@@ -52,10 +54,39 @@ const ServicesPage = () => {
       setError('');
       try {
         const response = await serviceService.getServices();
-        console.log('GET services -> request url:', response.request?.responseURL || 'unknown');
-        setServices(response.data);
+        console.log('✅ Réponse brute:', response);
+        
+        // CORRECTION: Extraire correctement les données selon la structure
+        let servicesData = [];
+        
+        if (response?.data) {
+          if (Array.isArray(response.data)) {
+            servicesData = response.data;
+            console.log('📦 servicesData est un tableau direct');
+          } 
+          else if (response.data?.data && Array.isArray(response.data.data)) {
+            servicesData = response.data.data;
+            console.log('📦 servicesData est dans response.data.data');
+          }
+          else if (response.data?.services && Array.isArray(response.data.services)) {
+            servicesData = response.data.services;
+            console.log('📦 servicesData est dans response.data.services');
+          }
+          else {
+            console.warn('⚠️ Structure inattendue:', response.data);
+            servicesData = [];
+          }
+        } 
+        else if (Array.isArray(response)) {
+          servicesData = response;
+          console.log('📦 response est directement un tableau');
+        }
+        
+        console.log(`📊 ${servicesData.length} services chargés`);
+        setServices(servicesData);
+        
       } catch (err) {
-        console.error('Erreur lors du fetch des services :', err);
+        console.error('❌ Erreur lors du fetch des services :', err);
         if (err?.response) {
           console.error('Response status:', err.response.status, 'data:', err.response.data);
           setError(`Erreur serveur: ${err.response.status} - ${err.response.data?.message || JSON.stringify(err.response.data)}`);
@@ -71,26 +102,70 @@ const ServicesPage = () => {
     fetchServices();
   }, []);
 
+  // ✅ CORRECTION: Grouper les services par catégorie pour l'affichage
+  const servicesByCategory = useMemo(() => {
+    if (!Array.isArray(services)) return {};
+    
+    const grouped = {};
+    services.forEach(service => {
+      // Déterminer la catégorie (priorité à category, fallback type)
+      const category = service.category || service.type || 'Autre';
+      
+      // Normaliser les catégories pour correspondre aux 4 types
+      let normalizedCategory = category;
+      if (category === 'Licence' || category === 'License') {
+        normalizedCategory = 'License';
+      } else if (category === 'Remote') {
+        normalizedCategory = 'Rental';
+      } else if (category === 'Déverrouillage IMEI' || category === 'IMEI') {
+        normalizedCategory = 'IMEI';
+      } else if (category === 'Server') {
+        normalizedCategory = 'Server';
+      }
+      
+      if (!grouped[normalizedCategory]) {
+        grouped[normalizedCategory] = [];
+      }
+      grouped[normalizedCategory].push(service);
+    });
+    
+    return grouped;
+  }, [services]);
+
   // Logique de filtrage et de recherche
   const filteredServices = useMemo(() => {
     if (!Array.isArray(services)) {
-      console.warn('services is not an array:', services);
+      console.warn('⚠️ services n\'est pas un tableau:', services);
       return [];
     }
+    
     return services
       .filter(service => {
         if (filter === 'Tous') return true;
-        if (filter === 'Déverrouillage par IMEI') return service.type === 'IMEI';
-        if (filter === 'Licences Logicielles') return service.type === 'Licence';
-        if (filter === 'Remote') return service.type === 'Remote';
+        
+        const category = service.category || service.type || '';
+        
+        // Mapping des filtres vers les catégories
+        if (filter === 'IMEI') {
+          return category === 'IMEI' || category === 'Déverrouillage IMEI';
+        }
+        if (filter === 'License') {
+          return category === 'License' || category === 'Licence';
+        }
+        if (filter === 'Rental') {
+          return category === 'Rental' || category === 'Remote';
+        }
+        if (filter === 'Server') {
+          return category === 'Server';
+        }
         return true;
       })
       .filter(service =>
-        service.name.toLowerCase().includes(searchTerm.toLowerCase())
+        service.name?.toLowerCase?.().includes(searchTerm.toLowerCase()) || false
       );
   }, [services, filter, searchTerm]);
 
-  // Gestion de l'ouverture du modal (maintenant appelé quand on clique sur la carte)
+  // Gestion de l'ouverture du modal
   const handleServiceClick = (service) => {
     setSelectedService(service);
     setIsModalOpen(true);
@@ -117,15 +192,46 @@ const ServicesPage = () => {
       setIsModalOpen(false);
       return;
     }
-    // Ici, logique pour ouvrir le modal de commande final ou rediriger
-    console.log('Commande du service:', service);
+    // ✅ CORRECTION: Rediriger vers le formulaire dynamique avec la catégorie
+    navigate(`/services/${service._id}/order`);
   };
 
+  // ✅ CORRECTION: Configuration des catégories
+  const categories = [
+    { 
+      id: 'IMEI', 
+      label: 'Services IMEI', 
+      icon: Smartphone, 
+      color: 'from-blue-500 to-cyan-500',
+      description: 'Déblocage et vérification par IMEI'
+    },
+    { 
+      id: 'Server', 
+      label: 'Services Serveur', 
+      icon: Server, 
+      color: 'from-orange-500 to-red-500',
+      description: 'Hébergement et services serveur'
+    },
+    { 
+      id: 'Rental', 
+      label: 'Location & Remote', 
+      icon: Wifi, 
+      color: 'from-purple-500 to-pink-500',
+      description: 'Assistance à distance et location'
+    },
+    { 
+      id: 'License', 
+      label: 'Licences', 
+      icon: Key, 
+      color: 'from-green-500 to-emerald-500',
+      description: 'Licences logicielles et clés d\'activation'
+    }
+  ];
+
+  // Onglets de filtrage
   const filterTabs = [
-    { id: 'Tous', label: 'Tous', icon: Sparkles, color: 'from-blue-400 to-cyan-400' },
-    { id: 'Déverrouillage par IMEI', label: 'Déverrouillage IMEI', icon: Smartphone, color: 'from-purple-400 to-pink-400' },
-    { id: 'Licences Logicielles', label: 'Licences', icon: Key, color: 'from-green-400 to-emerald-400' },
-    { id: 'Remote', label: 'Remote', icon: Globe, color: 'from-orange-400 to-amber-400' },
+    { id: 'Tous', label: 'Tous les services', icon: Sparkles, color: 'from-blue-400 to-cyan-400' },
+    ...categories
   ];
 
   return (
@@ -149,14 +255,12 @@ const ServicesPage = () => {
           </h1>
           
           <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
-            Découvrez notre gamme complète de solutions de déblocage mobile.
-            Cliquez sur un service pour plus de détails.
+            Découvrez notre gamme complète de services. Cliquez sur un service pour plus de détails.
           </p>
         </div>
 
-        {/* Barre de recherche et filtres */}
+        {/* Barre de recherche */}
         <div className="mb-8">
-          {/* Barre de recherche principale */}
           <div className="relative max-w-2xl mx-auto mb-4">
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
@@ -175,7 +279,7 @@ const ServicesPage = () => {
           </div>
 
           {/* Filtres dépliants */}
-          <div className={`transition-all duration-300 overflow-hidden ${showFilters ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'}`}>
+          <div className={`transition-all duration-300 overflow-hidden ${showFilters ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
             <div className="flex flex-wrap justify-center gap-2 p-2">
               {filterTabs.map((tab) => (
                 <button
@@ -233,37 +337,86 @@ const ServicesPage = () => {
           </div>
         )}
 
-        {/* Grille des services */}
+        {/* ✅ CORRECTION: Affichage des services par catégorie */}
         {!loading && !error && (
           <>
-            {filteredServices.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {filteredServices.map((service, index) => (
-                  <div
-                    key={service._id}
-                    className="transform transition-all duration-500 hover:scale-105 cursor-pointer"
-                    style={{ animationDelay: `${index * 100}ms` }}
-                    onClick={() => handleServiceClick(service)}
-                  >
-                    <ServiceCard 
-                      service={service} 
-                      onClick={() => handleServiceClick(service)}
-                    />
-                  </div>
-                ))}
+            {filter === 'Tous' ? (
+              // Affichage groupé par catégories
+              <div className="space-y-16">
+                {categories.map(category => {
+                  const categoryServices = servicesByCategory[category.id] || [];
+                  if (categoryServices.length === 0) return null;
+                  
+                  return (
+                    <div key={category.id} className="animate-fadeIn">
+                      {/* En-tête de catégorie */}
+                      <div className="flex items-center gap-4 mb-8">
+                        <div className={`p-4 rounded-2xl bg-gradient-to-r ${category.color} shadow-lg`}>
+                          <category.icon className="w-8 h-8 text-white" />
+                        </div>
+                        <div>
+                          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
+                            {category.label}
+                          </h2>
+                          <p className="text-gray-600 dark:text-gray-400 mt-1">
+                            {category.description} • {categoryServices.length} services
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Grille des services de la catégorie */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {categoryServices.map((service, index) => (
+                          <div
+                            key={service._id}
+                            className="transform transition-all duration-500 hover:scale-105 cursor-pointer"
+                            style={{ animationDelay: `${index * 100}ms` }}
+                            onClick={() => handleServiceClick(service)}
+                          >
+                            <ServiceCard 
+                              service={service} 
+                              onClick={() => handleServiceClick(service)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
-              <div className="text-center py-20">
-                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-800 mb-6">
-                  <Search className="w-10 h-10 text-gray-400" />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                  Aucun service trouvé
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Essayez de modifier vos critères de recherche
-                </p>
-              </div>
+              // Affichage filtré par une catégorie spécifique
+              <>
+                {filteredServices.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {filteredServices.map((service, index) => (
+                      <div
+                        key={service._id}
+                        className="transform transition-all duration-500 hover:scale-105 cursor-pointer animate-fadeIn"
+                        style={{ animationDelay: `${index * 100}ms` }}
+                        onClick={() => handleServiceClick(service)}
+                      >
+                        <ServiceCard 
+                          service={service} 
+                          onClick={() => handleServiceClick(service)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-20">
+                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-800 mb-6">
+                      <Search className="w-10 h-10 text-gray-400" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                      Aucun service trouvé dans cette catégorie
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Essayez une autre catégorie ou modifiez votre recherche
+                    </p>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
@@ -279,22 +432,19 @@ const ServicesPage = () => {
         </div>
       </main>
 
-      <Footer />
-
-      {/* Modal de détail du service (maintenant sans bouton commander) */}
+      {/* Modal de détail du service */}
       <ServiceModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         service={selectedService}
         userBalance={user?.balance || 0}
-        onOrder={handleOrderFromModal} // Ajoute cette prop si ton modal a besoin de cette fonction
+        onOrder={handleOrderFromModal}
       />
 
       {/* Modal solde insuffisant */}
       {showInsufficientModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
           <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-8 text-center transform animate-slideUp">
-            {/* Bouton fermer */}
             <button
               onClick={() => setShowInsufficientModal(false)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
@@ -302,7 +452,6 @@ const ServicesPage = () => {
               <X className="w-6 h-6" />
             </button>
 
-            {/* Icône */}
             <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-100 dark:bg-red-900/20 mb-6">
               <AlertCircle className="w-10 h-10 text-red-500" />
             </div>
@@ -336,6 +485,8 @@ const ServicesPage = () => {
           </div>
         </div>
       )}
+
+      <Footer />
     </div>
   );
 };

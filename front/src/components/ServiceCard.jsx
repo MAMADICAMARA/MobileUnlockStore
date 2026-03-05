@@ -1,5 +1,5 @@
 // src/components/ServiceCard.jsx
-import { Smartphone, Key, Globe, CreditCard, Star, Clock, ChevronRight, Zap } from 'lucide-react';
+import { Smartphone, Key, Globe, CreditCard, Star, Clock, ChevronRight, Zap, Server, Shield, Wifi } from 'lucide-react';
 
 /**
  * Composant carte pour afficher un aperçu d'un service.
@@ -8,7 +8,19 @@ import { Smartphone, Key, Globe, CreditCard, Star, Clock, ChevronRight, Zap } fr
  * @param {function} props.onClick - La fonction à appeler lorsque la carte est cliquée.
  */
 const ServiceCard = ({ service, onClick }) => {
-  // Définir des couleurs et icônes en fonction du type de service
+  // Sécurité : si service est undefined ou null, ne pas rendre le composant
+  if (!service) {
+    console.warn('ServiceCard: service est undefined ou null');
+    return null;
+  }
+
+  // Définir des icônes par défaut pour éviter les erreurs
+  const defaultIcon = Shield;
+  
+  // Normaliser la catégorie (compatibilité avec service.type historique)
+  const category = service.category || service.type || service.typeName || 'default';
+
+  // Configuration des types avec des valeurs par défaut sécurisées
   const typeConfig = {
     'IMEI': {
       color: 'from-blue-500 to-cyan-500',
@@ -17,39 +29,64 @@ const ServiceCard = ({ service, onClick }) => {
       badgeColor: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
       borderColor: 'border-blue-200 dark:border-blue-800'
     },
-    'Licence': {
+    'License': {
       color: 'from-green-500 to-emerald-500',
       lightColor: 'bg-green-50 dark:bg-green-900/20',
       icon: Key,
       badgeColor: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
       borderColor: 'border-green-200 dark:border-green-800'
     },
-    'Remote': {
+    'Rental': {
       color: 'from-purple-500 to-pink-500',
       lightColor: 'bg-purple-50 dark:bg-purple-900/20',
-      icon: Key,
+      icon: Globe,
       badgeColor: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
       borderColor: 'border-purple-200 dark:border-purple-800'
     },
-    'default': {
+    'Server': {
       color: 'from-orange-500 to-amber-500',
       lightColor: 'bg-orange-50 dark:bg-orange-900/20',
-      icon: CreditCard,
+      icon: Server,
+      badgeColor: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+      borderColor: 'border-gray-200 dark:border-gray-700'
+    },
+    'Remote': {
+      color: 'from-indigo-500 to-purple-500',
+      lightColor: 'bg-indigo-50 dark:bg-indigo-900/20',
+      icon: Wifi,
+      badgeColor: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
+      borderColor: 'border-indigo-200 dark:border-indigo-800'
+    },
+    // Configuration par défaut pour tous les autres types
+    'default': {
+      color: 'from-gray-500 to-slate-500',
+      lightColor: 'bg-gray-50 dark:bg-gray-800',
+      icon: Shield,
       badgeColor: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
       borderColor: 'border-gray-200 dark:border-gray-700'
     }
   };
 
-  const config = typeConfig[service.type] || typeConfig.default;
-  const IconComponent = config.icon;
+  // Obtenir la configuration avec fallback vers default
+  const config = typeConfig[category] || typeConfig.default;
+  
+  // Sécurité : s'assurer que config.icon existe, sinon utiliser defaultIcon
+  const IconComponent = config?.icon || defaultIcon;
 
-  // Fonction pour formater le délai
+  // Fonction pour formater le délai avec sécurité
   const formatDeliveryTime = (time) => {
     if (!time) return '24h';
     if (typeof time === 'string') return time;
-    if (time.value && time.unit) return `${time.value}${time.unit}`;
+    if (time && time.value && time.unit) return `${time.value}${time.unit}`;
     return '24h';
   };
+
+  // Valeurs par défaut pour les propriétés du service
+  const serviceName = service.name || 'Service sans nom';
+  const serviceType = service.type || 'Non catégorisé';
+  const serviceDescription = service.description || 'Service professionnel et sécurisé. Solution rapide et efficace.';
+  const servicePrice = typeof service.price === 'number' ? service.price : 0;
+  const serviceDeliveryTime = service.deliveryTime || formatDeliveryTime(service.deliveryTime);
 
   return (
     <div
@@ -66,52 +103,31 @@ const ServiceCard = ({ service, onClick }) => {
       </div>
 
       {/* Contenu principal */}
-      <div className="relative p-6">
+      <div className="relative p-3">
         {/* En-tête avec icône et badge */}
         <div className="flex items-start justify-between mb-4">
-          {/* Icône avec fond dégradé */}
+          {/* Icône avec fond dégradé - Version sécurisée */}
           <div className={`relative w-14 h-14 rounded-xl bg-gradient-to-br ${config.color} p-0.5 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
             <div className="w-full h-full rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center">
-              <IconComponent className={`w-7 h-7`} style={{
-                color: `var(--tw-${config.color.split(' ')[0].replace('from-', '')})`
-              }} />
+              <IconComponent className="w-7 h-7 text-gray-700 dark:text-gray-300" />
             </div>
           </div>
-
-          {/* Badge de type */}
-          <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${config.badgeColor} border ${config.borderColor} shadow-sm`}>
-            {service.type || 'Service'}
+          
+          {/* Badge de type - Version sécurisée */}
+          <span className={`text-xs font-semibold px-2 py-1.5 rounded-full ${config.badgeColor} border ${config.borderColor} shadow-sm`}>
+            {serviceType}
           </span>
         </div>
 
         {/* Titre et description */}
         <div className="mb-4">
           <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-blue-600 group-hover:to-purple-600 transition-all duration-300">
-            {service.name}
+            {serviceName}
           </h3>
           <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed line-clamp-2">
-            {service.description || 'Service de déblocage professionnel et sécurisé. Solution rapide et efficace pour tous vos besoins.'}
+            {serviceDescription}
           </p>
         </div>
-
-        {/* Tags additionnels (si disponibles) */}
-        {service.tags && service.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-4">
-            {service.tags.slice(0, 2).map((tag, index) => (
-              <span
-                key={index}
-                className="px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-md"
-              >
-                {tag}
-              </span>
-            ))}
-            {service.tags.length > 2 && (
-              <span className="px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-md">
-                +{service.tags.length - 2}
-              </span>
-            )}
-          </div>
-        )}
 
         {/* Informations prix et délai */}
         <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl mb-4 border border-gray-100 dark:border-gray-700">
@@ -124,9 +140,9 @@ const ServiceCard = ({ service, onClick }) => {
               <span className="text-xs text-gray-500 dark:text-gray-400">Prix</span>
               <div className="flex items-baseline gap-1">
                 <span className="font-bold text-xl text-gray-900 dark:text-white">
-                  {service.price?.toFixed(2)}
+                  {servicePrice.toFixed(2)}
                 </span>
-                <span className="text-sm text-gray-500 dark:text-gray-400">€</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">FG</span>
               </div>
             </div>
           </div>
@@ -139,45 +155,15 @@ const ServiceCard = ({ service, onClick }) => {
             <div className="text-right">
               <span className="text-xs text-gray-500 dark:text-gray-400">Délai</span>
               <p className="font-semibold text-gray-900 dark:text-white">
-                {service.deliveryTime || '24h'}
+                {serviceDeliveryTime}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Métriques de popularité */}
-        <div className="flex items-center justify-between text-sm mb-2">
-          <div className="flex items-center gap-1">
-            <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-            <span className="font-medium text-gray-700 dark:text-gray-300">4.8</span>
-            <span className="text-gray-500 dark:text-gray-500">(125 avis)</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Zap className="w-4 h-4 text-yellow-500" />
-            <span className="text-gray-600 dark:text-gray-400">Populaire</span>
-          </div>
-        </div>
-
-        {/* Indicateur de disponibilité */}
-        <div className="flex items-center gap-2 text-xs">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-          </span>
-          <span className="text-green-600 dark:text-green-400 font-medium">Disponible immédiatement</span>
-        </div>
-
-        {/* Message de call-to-action au survol */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white via-white dark:from-slate-800 dark:via-slate-800 to-transparent p-6 transform translate-y-full group-hover:translate-y-0 transition-transform duration-500">
-          <div className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400 font-semibold">
-            <span>Voir les détails du service</span>
-            <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          </div>
-        </div>
+        {/* Overlay de brillance au survol */}
+        <div className={`absolute inset-0 bg-gradient-to-r ${config.color} opacity-0 group-hover:opacity-5 transition-opacity duration-500 pointer-events-none`}></div>
       </div>
-
-      {/* Overlay de brillance au survol */}
-      <div className={`absolute inset-0 bg-gradient-to-r ${config.color} opacity-0 group-hover:opacity-5 transition-opacity duration-500 pointer-events-none`}></div>
     </div>
   );
 };

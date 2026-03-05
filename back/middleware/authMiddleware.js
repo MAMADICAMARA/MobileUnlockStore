@@ -56,9 +56,18 @@ const protect = async (req, res, next) => {
         });
       }
 
-      // Attacher l'utilisateur à l'objet de la requête (sans le mot de passe)
+      // Attacher l'utilisateur à l'objet de la requête (convertir en objet plat pour éviter les problèmes Mongoose)
       // Cela rend les informations de l'utilisateur disponibles dans tous les contrôleurs
-      req.user = user;
+      req.user = {
+        _id: user._id,
+        id: user._id.toString(),
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        balance: user.balance,
+        // Conserver autres champs si nécessaire
+        ...user.toObject()
+      };
 
       // ✅ Passer au contrôleur de la route suivante
       next();

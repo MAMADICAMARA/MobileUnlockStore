@@ -7,9 +7,22 @@ import api from './api';
 const serviceService = {
   /**
    * Récupère la liste de tous les services depuis le backend.
+   * Supporte les paramètres optionnels pour filtrer les services.
+   * @param {object} params - Paramètres optionnels de filtrage
+   * @param {string} params.category - Filtrer par catégorie (IMEI, Server, Rental, License)
    * @returns {Promise<object>} La réponse de l'API contenant la liste des services.
    */
-  getServices: () => api.get('/api/services'), // Correction: Le préfixe /api est déjà dans la baseURL d'axios
+  getServices: (params = {}) => {
+    // Construire les paramètres de requête
+    const queryParams = new URLSearchParams();
+    if (params.category) queryParams.append('category', params.category);
+    
+    // Ajouter les paramètres à l'URL si présents
+    const query = queryParams.toString();
+    const url = `/api/services${query ? `?${query}` : ''}`;
+    
+    return api.get(url);
+  },
 
   /**
    * Récupère un service par son ID.
@@ -26,9 +39,9 @@ const serviceService = {
    * @returns {Promise<object>} La réponse de l'API confirmant la création de la commande.
    */
   placeOrder: (orderData) => {
-    // Note: Le backend doit être configuré pour recevoir ces données
-    // et créer une commande associée à l'utilisateur authentifié.
-    return api.post('/orders', orderData);
+    // Envoyer la commande au backend en utilisant la clé `userSubmittedData`
+    // pour rester compatible avec le modèle Order côté serveur.
+    return api.post('/api/orders', orderData);
   },
 
   /**

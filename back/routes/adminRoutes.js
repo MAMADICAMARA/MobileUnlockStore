@@ -1,4 +1,3 @@
-// back/routes/adminRoutes.js
 const express = require('express');
 const router = express.Router();
 const { admin, protect } = require('../middleware/authMiddleware');
@@ -48,8 +47,6 @@ router.get('/employees', protect, admin, getAllEmployees);
 // --- Services ---
 router.get('/services', protect, admin, async (req, res) => {
   const services = await Service.find({});
-  // Ajout d'un filtre ou d'une propriété pour afficher le type "Remote" si présent
-  // Si tu veux juste afficher tous les services, rien à changer ici
   res.json(services);
 });
 router.post('/services', protect, admin, async (req, res) => {
@@ -65,32 +62,107 @@ router.delete('/services/:id', protect, admin, async (req, res) => {
   res.json({ message: 'Service supprimé' });
 });
 
-// --- Commandes ---
+// --- COMMANDES ---
+// ⚠️ SECTION CORRIGÉE ⚠️
 router.get('/orders', protect, admin, async (req, res) => {
-  const orders = await Order.find({}).populate('user').populate('service');
-  res.json(orders);
+  try {
+    const orders = await Order.find({})
+      .populate('userId', 'name email')  // ✅ CORRIGÉ: 'userId' au lieu de 'user'
+      .populate('serviceId', 'name category price');  // ✅ CORRIGÉ: 'serviceId' au lieu de 'service'
+    
+    res.json({
+      success: true,
+      count: orders.length,
+      data: orders
+    });
+  } catch (error) {
+    console.error('Erreur lors du chargement des commandes:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur lors du chargement des commandes' 
+    });
+  }
 });
+
 router.put('/orders/:id/status', protect, admin, async (req, res) => {
-  const order = await Order.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true });
-  res.json(order);
+  try {
+    const order = await Order.findByIdAndUpdate(
+      req.params.id, 
+      { status: req.body.status }, 
+      { new: true }
+    )
+      .populate('userId', 'name email')
+      .populate('serviceId', 'name category price');
+    
+    if (!order) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Commande non trouvée' 
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: order
+    });
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour du statut:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur lors de la mise à jour du statut' 
+    });
+  }
 });
 
 // --- Tickets ---
 router.get('/tickets', protect, admin, async (req, res) => {
-  const tickets = await Ticket.find({}).populate('user');
-  res.json(tickets);
+  try {
+    const tickets = await Ticket.find({}).populate('userId', 'name email');
+    res.json({
+      success: true,
+      data: tickets
+    });
+  } catch (error) {
+    console.error('Erreur tickets:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur lors du chargement des tickets' 
+    });
+  }
 });
 
 // --- Paiements ---
 router.get('/payments', protect, admin, async (req, res) => {
-  const payments = await Payment.find({}).populate('user');
-  res.json(payments);
+  try {
+    const payments = await Payment.find({}).populate('userId', 'name email');
+    res.json({
+      success: true,
+      data: payments
+    });
+  } catch (error) {
+    console.error('Erreur paiements:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur lors du chargement des paiements' 
+    });
+  }
 });
 
 // --- Licences ---
 router.get('/licenses', protect, admin, async (req, res) => {
-  const licenses = await License.find({}).populate('user');
-  res.json(licenses);
+  try {
+    const licenses = await License.find({}).populate('userId', 'name email');
+    res.json({
+      success: true,
+      data: licenses
+    });
+  } catch (error) {
+    console.error('Erreur licences:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur lors du chargement des licences' 
+    });
+  }
 });
 
 // --- Statistiques du dashboard ---
@@ -105,15 +177,23 @@ router.get('/dashboard-stats', protect, admin, async (req, res) => {
     const newUsers = await User.countDocuments({
       createdAt: { $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) }
     });
-    const pendingOrders = await Order.countDocuments({ status: 'En attente' });
+    const pendingOrders = await Order.countDocuments({ status: 'pending' });
+    
     res.json({
-      totalRevenue: totalRevenue[0]?.total || 0,
-      ordersThisMonth,
-      newUsers,
-      pendingOrders
+      success: true,
+      data: {
+        totalRevenue: totalRevenue[0]?.total || 0,
+        ordersThisMonth,
+        newUsers,
+        pendingOrders
+      }
     });
   } catch (err) {
-    res.status(500).json({ message: "Erreur lors du calcul des statistiques" });
+    console.error('Erreur stats dashboard:', err);
+    res.status(500).json({ 
+      success: false, 
+      message: "Erreur lors du calcul des statistiques" 
+    });
   }
 });
 

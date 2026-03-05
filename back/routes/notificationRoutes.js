@@ -1,37 +1,116 @@
+// backend/routes/notificationRoutes.js
 const express = require('express');
 const router = express.Router();
-const { protect, admin } = require('../middleware/authMiddleware');
+// Importer les middlewares depuis authMiddleware.js et garder les noms attendus
+const { protect: authenticate, admin: authorizeAdmin } = require('../middleware/authMiddleware');
 const Notification = require('../models/Notification');
 
-// Créer une notification (admin ou globale)
-router.post('/', protect, async (req, res) => {
-  const { title, message, type, user } = req.body;
-  const notification = await Notification.create({ title, message, type, user: user || null });
-  res.status(201).json(notification);
+// GET /api/notifications/me - Notifications de l'utilisateur connecté
+router.get('/me', authenticate, async (req, res) => {
+  try {
+    const notifications = await Notification.find({ userId: req.user.id })
+      .sort({ createdAt: -1 })
+      .limit(50);
+    
+    res.json({
+      success: true,
+      data: notifications
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des notifications'
+    });
+  }
 });
 
-// Récupérer toutes les notifications (admin)
-router.get('/all', protect, admin, async (req, res) => {
-  const notifications = await Notification.find({}).sort({ createdAt: -1 }).populate('user');
-  res.json(notifications);
+// GET /api/notifications/all - Toutes les notifications (admin)
+router.get('/all', authenticate, authorizeAdmin, async (req, res) => {
+  try {
+    const notifications = await Notification.find()
+      .populate('userId', 'name email')
+      .sort({ createdAt: -1 })
+      .limit(100);
+    
+    res.json({
+      success: true,
+      data: notifications
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des notifications'
+    });
+  }
 });
 
-// Récupérer les notifications du client connecté
-router.get('/me', protect, async (req, res) => {
-  const notifications = await Notification.find({ $or: [ { user: req.user._id }, { user: null } ] }).sort({ createdAt: -1 });
-  res.json(notifications);
+// PUT /api/notifications/:id/read - Marquer comme lu
+router.put('/:id/read', authenticate, async (req, res) => {
+  try {
+    const notification = await Notification.findById(req.params.id);
+    
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Notification non trouvée'
+      });
+    }
+    
+    // Vérifier que la notification appartient à l'utilisateur
+    if (notification.userId.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Non autorisé'
+      });
+    }
+    
+    notification.isRead = true;
+    await notification.save();
+    
+    res.json({
+      success: true,
+      message: 'Notification marquée comme lue'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors du marquage de la notification'
+    });
+  }
 });
 
-// Marquer une notification comme lue
-router.put('/:id/read', protect, async (req, res) => {
-  const notification = await Notification.findByIdAndUpdate(req.params.id, { isRead: true }, { new: true });
-  res.json(notification);
-});
-
-// Supprimer une notification
-router.delete('/:id', protect, async (req, res) => {
-  await Notification.findByIdAndDelete(req.params.id);
-  res.json({ message: 'Notification supprimée' });
+// DELETE /api/notifications/:id - Supprimer une notification
+router.delete('/:id', authenticate, async (req, res) => {
+  try {
+    const notification = await Notification.findById(req.params.id);
+    
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Notification non trouvée'
+      });
+    }
+    
+    // Vérifier que la notification appartient à l'utilisateur
+    if (notification.userId.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Non autorisé'
+      });
+    }
+    
+    await notification.deleteOne();
+    
+    res.json({
+      success: true,
+      message: 'Notification supprimée'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la suppression de la notification'
+    });
+  }
 });
 
 module.exports = router;

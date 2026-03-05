@@ -1,5 +1,6 @@
 // src/pages/client/DashboardPage.jsx
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
 import orderService from '../../services/orderService';
 import licenseService from '../../services/licenseService';
@@ -29,6 +30,7 @@ import {
  */
 const DashboardPage = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [recentOrders, setRecentOrders] = useState([]);
   const [activeLicenses, setActiveLicenses] = useState(0);
   const [openTickets, setOpenTickets] = useState(0);
@@ -41,30 +43,94 @@ const DashboardPage = () => {
       setLoading(true);
       setError('');
       try {
+        // Récupérer les commandes récentes
         const ordersRes = await orderService.getOrders();
-        setRecentOrders(ordersRes.data.slice(0, 5));
-        const licensesRes = await licenseService.getLicenses();
-        setActiveLicenses(licensesRes.data.length);
-        const ticketsRes = await supportService.getTickets();
-        setOpenTickets(ticketsRes.data.filter(t => t.status !== 'Résolu').length);
+        console.log('📦 Réponse commandes brute:', ordersRes);
+        
+        // ✅ CORRECTION: Extraire correctement les commandes
+        let orders = [];
+        if (ordersRes?.data?.data && Array.isArray(ordersRes.data.data)) {
+          // Structure: { success: true, data: [...] }
+          orders = ordersRes.data.data;
+        } else if (ordersRes?.data && Array.isArray(ordersRes.data)) {
+          // Structure: { data: [...] }
+          orders = ordersRes.data;
+        } else if (Array.isArray(ordersRes)) {
+          // Structure: [...]
+          orders = ordersRes;
+        } else {
+          console.warn('⚠️ Structure de commandes inattendue:', ordersRes);
+          orders = [];
+        }
+        
+        setRecentOrders(orders.slice(0, 5));
+        
+        // Récupérer les licences actives
+        try {
+          const licensesRes = await licenseService.getLicenses();
+          console.log('🔑 Réponse licences brute:', licensesRes);
+          
+          let licenses = [];
+          if (licensesRes?.data?.data && Array.isArray(licensesRes.data.data)) {
+            licenses = licensesRes.data.data;
+          } else if (licensesRes?.data && Array.isArray(licensesRes.data)) {
+            licenses = licensesRes.data;
+          } else if (Array.isArray(licensesRes)) {
+            licenses = licensesRes;
+          }
+          
+          setActiveLicenses(licenses.length);
+        } catch (licenseErr) {
+          console.error('Erreur licences:', licenseErr);
+          setActiveLicenses(0);
+        }
+        
+        // Récupérer les tickets ouverts
+        try {
+          const ticketsRes = await supportService.getTickets();
+          console.log('🎫 Réponse tickets brute:', ticketsRes);
+          
+          let tickets = [];
+          if (ticketsRes?.data?.data && Array.isArray(ticketsRes.data.data)) {
+            tickets = ticketsRes.data.data;
+          } else if (ticketsRes?.data && Array.isArray(ticketsRes.data)) {
+            tickets = ticketsRes.data;
+          } else if (Array.isArray(ticketsRes)) {
+            tickets = ticketsRes;
+          }
+          
+          setOpenTickets(tickets.filter(t => t.status !== 'Résolu' && t.status !== 'resolved' && t.status !== 'closed').length);
+        } catch (ticketErr) {
+          console.error('Erreur tickets:', ticketErr);
+          setOpenTickets(0);
+        }
+        
       } catch (err) {
+        console.error('❌ Erreur Dashboard:', err);
         setError('Impossible de charger le résumé du tableau de bord.');
       } finally {
         setLoading(false);
       }
     };
-    fetchData();
-  }, []);
+    
+    if (user) {
+      fetchData();
+    }
+  }, [user]);
 
   const getStatusIcon = (status) => {
     switch(status) {
       case 'Terminé':
+      case 'completed':
         return <CheckCircleIcon className="h-4 w-4 text-emerald-600" />;
       case 'En cours':
+      case 'processing':
         return <ArrowPathIcon className="h-4 w-4 text-amber-600" />;
       case 'En attente':
+      case 'pending':
         return <ClockIcon className="h-4 w-4 text-blue-600" />;
       case 'Annulé':
+      case 'cancelled':
         return <XCircleIcon className="h-4 w-4 text-red-600" />;
       default:
         return <BellAlertIcon className="h-4 w-4 text-gray-600" />;
@@ -74,17 +140,41 @@ const DashboardPage = () => {
   const getStatusColor = (status) => {
     switch(status) {
       case 'Terminé':
+      case 'completed':
         return 'bg-emerald-50 text-emerald-700 border-emerald-200';
       case 'En cours':
+      case 'processing':
         return 'bg-amber-50 text-amber-700 border-amber-200';
       case 'En attente':
+      case 'pending':
         return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'Annulé':
+      case 'cancelled':
         return 'bg-red-50 text-red-700 border-red-200';
       default:
         return 'bg-gray-50 text-gray-700 border-gray-200';
     }
   };
+
+  const formatPrice = (price) => {
+    if (price === undefined || price === null) return '0.00';
+    return typeof price === 'number' ? price.toFixed(2) : parseFloat(price).toFixed(2);
+  };
+
+  const handleNavigate = (path) => {
+    navigate(path);
+  };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <UserCircleIcon className="h-20 w-20 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-600">Veuillez vous connecter pour accéder à votre tableau de bord.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center">
@@ -188,17 +278,23 @@ const DashboardPage = () => {
               <div>
                 <p className="text-green-100 text-lg font-medium mb-1">Solde disponible</p>
                 <p className="text-5xl font-black tracking-tight">
-                  {user?.balance !== undefined ? user.balance.toFixed(2) : '0.00'} €
+                  {user?.balance !== undefined ? formatPrice(user.balance) : '0.00'} €
                 </p>
               </div>
             </div>
             
             <div className="flex gap-3">
-              <button className="bg-white/20 backdrop-blur-sm px-6 py-3 rounded-xl font-semibold hover:bg-white/30 transition-all duration-300 flex items-center gap-2">
+              <button 
+                onClick={() => handleNavigate('/client/add-funds')}
+                className="bg-white/20 backdrop-blur-sm px-6 py-3 rounded-xl font-semibold hover:bg-white/30 transition-all duration-300 flex items-center gap-2"
+              >
                 <CurrencyEuroIcon className="h-5 w-5" />
                 Recharger
               </button>
-              <button className="bg-white text-green-700 px-6 py-3 rounded-xl font-semibold hover:bg-green-50 transition-all duration-300 flex items-center gap-2">
+              <button 
+                onClick={() => handleNavigate('/client/balance-history')}
+                className="bg-white text-green-700 px-6 py-3 rounded-xl font-semibold hover:bg-green-50 transition-all duration-300 flex items-center gap-2"
+              >
                 <ArrowTrendingUpIcon className="h-5 w-5" />
                 Historique
               </button>
@@ -280,7 +376,10 @@ const DashboardPage = () => {
                 <ShoppingBagIcon className="h-6 w-6 text-white" />
                 <h2 className="text-xl font-bold text-white">Commandes récentes</h2>
               </div>
-              <button className="text-white/80 hover:text-white text-sm font-medium transition-colors duration-300">
+              <button 
+                onClick={() => handleNavigate('/client/orders')}
+                className="text-white/80 hover:text-white text-sm font-medium transition-colors duration-300"
+              >
                 Voir tout →
               </button>
             </div>
@@ -289,35 +388,44 @@ const DashboardPage = () => {
           <div className="p-6">
             {recentOrders.length > 0 ? (
               <div className="space-y-4">
-                {recentOrders.map((order, index) => (
-                  <div 
-                    key={order._id} 
-                    className="group flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all duration-300 cursor-pointer"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="h-10 w-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold">
-                        {index + 1}
+                {recentOrders.map((order, index) => {
+                  // ✅ CORRECTION: Utiliser les bonnes propriétés selon la structure
+                  const serviceName = order.serviceName || order.service?.name || order.serviceDetails?.name || 'Service';
+                  const orderId = order._id || order.id || 'N/A';
+                  const orderStatus = order.status || 'En attente';
+                  const orderPrice = order.price || order.amount || order.serviceDetails?.price || 0;
+                  
+                  return (
+                    <div 
+                      key={orderId} 
+                      onClick={() => handleNavigate(`/client/orders/${orderId}`)}
+                      className="group flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all duration-300 cursor-pointer"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold">
+                          {index + 1}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors duration-300">
+                            {serviceName}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            #{typeof orderId === 'string' ? orderId.slice(-8) : orderId}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors duration-300">
-                          {order.serviceName}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          #{order._id?.slice(-8)}
-                        </p>
+                      <div className="flex items-center gap-4">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(orderStatus)} flex items-center gap-1`}>
+                          {getStatusIcon(orderStatus)}
+                          {orderStatus}
+                        </span>
+                        <span className="font-bold text-gray-900">
+                          {formatPrice(orderPrice)} €
+                        </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.status)} flex items-center gap-1`}>
-                        {getStatusIcon(order.status)}
-                        {order.status}
-                      </span>
-                      <span className="font-bold text-gray-900">
-                        {order.price?.toFixed(2)} €
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-12">
@@ -359,7 +467,10 @@ const DashboardPage = () => {
                 </div>
               </div>
               
-              <button className="w-full mt-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-xl font-medium hover:from-purple-700 hover:to-pink-700 transition-all duration-300 shadow-lg">
+              <button 
+                onClick={() => handleNavigate('/client/licenses')}
+                className="w-full mt-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-xl font-medium hover:from-purple-700 hover:to-pink-700 transition-all duration-300 shadow-lg"
+              >
                 Gérer mes licences
               </button>
             </div>
@@ -398,7 +509,10 @@ const DashboardPage = () => {
                 </div>
               </div>
               
-              <button className="w-full bg-gradient-to-r from-amber-600 to-orange-600 text-white py-3 rounded-xl font-medium hover:from-amber-700 hover:to-orange-700 transition-all duration-300 shadow-lg">
+              <button 
+                onClick={() => handleNavigate('/client/tickets/new')}
+                className="w-full bg-gradient-to-r from-amber-600 to-orange-600 text-white py-3 rounded-xl font-medium hover:from-amber-700 hover:to-orange-700 transition-all duration-300 shadow-lg"
+              >
                 Contacter le support
               </button>
             </div>
@@ -413,7 +527,10 @@ const DashboardPage = () => {
             <p className="text-indigo-100 text-sm mb-4">
               Votre compte est protégé par une authentification à deux facteurs.
             </p>
-            <button className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-xl text-sm font-medium hover:bg-white/30 transition-all duration-300">
+            <button 
+              onClick={() => handleNavigate('/client/security')}
+              className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-xl text-sm font-medium hover:bg-white/30 transition-all duration-300"
+            >
               Vérifier la sécurité
             </button>
           </div>
@@ -437,7 +554,10 @@ const DashboardPage = () => {
               <p className="text-gray-400">Il y a 3 jours</p>
             </div>
           </div>
-          <button className="text-indigo-600 hover:text-indigo-700 font-medium">
+          <button 
+            onClick={() => handleNavigate('/client/activity')}
+            className="text-indigo-600 hover:text-indigo-700 font-medium"
+          >
             Voir l'historique complet
           </button>
         </div>

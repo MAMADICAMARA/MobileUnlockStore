@@ -2,13 +2,13 @@ import api from './api';
 
 const notificationService = {
   // Récupérer toutes les notifications (admin)
-  getAll: () => api.get('/notifications/all'),
+  getAll: () => api.get('/api/notifications/all'),
   // Récupérer les notifications du client connecté
-  getMine: () => api.get('/notifications/me'),
+  getMine: () => api.get('/api/notifications/me'),
   // Marquer une notification comme lue
-  markAsRead: (id) => api.put(`/notifications/${id}/read`),
+  markAsRead: (id) => api.put(`/api/notifications/${id}/read`),
   // Supprimer une notification
-  delete: (id) => api.delete(`/notifications/${id}`),
+  delete: (id) => api.delete(`/api/notifications/${id}`),
 };
 
 export default notificationService;

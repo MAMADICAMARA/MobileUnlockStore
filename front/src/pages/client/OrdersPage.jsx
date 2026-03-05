@@ -88,7 +88,7 @@ const OrdersPage = () => {
   const [sortOrder, setSortOrder] = useState('desc');
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState('table'); // 'table' ou 'cards'
+  const [viewMode, setViewMode] = useState('table');
   const [selectedOrder, setSelectedOrder] = useState(null);
 
   useEffect(() => {
@@ -97,8 +97,21 @@ const OrdersPage = () => {
       setError('');
       try {
         const response = await orderService.getOrders();
-        setOrders(response.data);
+        console.log("📦 Réponse commandes:", response);
+        
+        // 🔥 CORRECTION : Extraire correctement les données
+        let ordersData = [];
+        if (response.data?.data && Array.isArray(response.data.data)) {
+          ordersData = response.data.data;
+        } else if (response.data && Array.isArray(response.data)) {
+          ordersData = response.data;
+        } else if (response.data?.orders && Array.isArray(response.data.orders)) {
+          ordersData = response.data.orders;
+        }
+        
+        setOrders(ordersData);
       } catch (err) {
+        console.error('❌ Erreur chargement commandes:', err);
         setError('Impossible de charger l\'historique des commandes.');
       } finally {
         setLoading(false);
@@ -107,8 +120,13 @@ const OrdersPage = () => {
     fetchOrders();
   }, []);
 
-  // Filtrage et tri des commandes
+  // 🔥 CORRECTION : Vérifier que orders est un tableau
   const filteredAndSortedOrders = useMemo(() => {
+    if (!Array.isArray(orders)) {
+      console.warn('⚠️ orders n\'est pas un tableau:', orders);
+      return [];
+    }
+    
     let filtered = [...orders];
     
     // Filtre par statut
@@ -126,20 +144,22 @@ const OrdersPage = () => {
     
     // Tri par date
     filtered.sort((a, b) => {
-      const dateA = new Date(a.date);
-      const dateB = new Date(b.date);
+      const dateA = new Date(a.date || a.createdAt);
+      const dateB = new Date(b.date || b.createdAt);
       return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
     });
     
     return filtered;
   }, [orders, sortOrder, filterStatus, searchTerm]);
 
+  // 🔥 CORRECTION : Sécuriser les stats
   const stats = useMemo(() => {
+    const ordersArray = Array.isArray(orders) ? orders : [];
     return {
-      total: orders.length,
-      completed: orders.filter(o => o.status === 'Terminé').length,
-      pending: orders.filter(o => o.status === 'En attente').length,
-      totalSpent: orders.reduce((acc, order) => acc + (order.price || 0), 0)
+      total: ordersArray.length,
+      completed: ordersArray.filter(o => o.status === 'Terminé').length,
+      pending: ordersArray.filter(o => o.status === 'En attente').length,
+      totalSpent: ordersArray.reduce((acc, order) => acc + (order.price || 0), 0)
     };
   }, [orders]);
 
@@ -194,6 +214,9 @@ const OrdersPage = () => {
       </div>
     </div>
   );
+
+  // 🔥 CORRECTION : Vérifier avant d'afficher
+  const hasOrders = Array.isArray(filteredAndSortedOrders) && filteredAndSortedOrders.length > 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
@@ -326,7 +349,7 @@ const OrdersPage = () => {
         </div>
 
         {/* Affichage des commandes */}
-        {filteredAndSortedOrders.length === 0 ? (
+        {!hasOrders ? (
           <div className="bg-white rounded-3xl shadow-xl p-16 text-center">
             <div className="bg-gray-100 rounded-full p-8 w-32 h-32 mx-auto mb-6 flex items-center justify-center">
               <ShoppingBagIcon className="h-12 w-12 text-gray-400" />
@@ -360,7 +383,7 @@ const OrdersPage = () => {
                 <tbody className="divide-y divide-gray-200">
                   {filteredAndSortedOrders.map((order, index) => (
                     <tr 
-                      key={order._id} 
+                      key={order._id || index} 
                       className="group hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-indigo-50/50 transition-all duration-300 cursor-pointer"
                       onClick={() => setSelectedOrder(order)}
                     >
@@ -371,10 +394,10 @@ const OrdersPage = () => {
                           </div>
                           <div>
                             <div className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors duration-300">
-                              {order.serviceName}
+                              {order.serviceName || order.service?.name || 'Service'}
                             </div>
                             <div className="text-xs text-gray-500">
-                              #{order._id?.slice(-8)}
+                              #{order._id?.slice(-8) || order.orderCode?.slice(-8) || 'N/A'}
                             </div>
                           </div>
                         </div>
@@ -382,7 +405,7 @@ const OrdersPage = () => {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2 text-gray-600">
                           <CalendarIcon className="h-4 w-4" />
-                          {formatDate(order.date)}
+                          {formatDate(order.date || order.createdAt)}
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -407,16 +430,16 @@ const OrdersPage = () => {
         ) : (
           /* Vue Cartes */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredAndSortedOrders.map((order) => (
+            {filteredAndSortedOrders.map((order, index) => (
               <div
-                key={order._id}
+                key={order._id || index}
                 className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 overflow-hidden"
               >
                 <div className={`h-3 bg-gradient-to-r ${getStatusColor(order.status)}`}></div>
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-4">
                     <div>
-                      <h3 className="font-semibold text-gray-900 text-lg mb-1">{order.serviceName}</h3>
+                      <h3 className="font-semibold text-gray-900 text-lg mb-1">{order.serviceName || order.service?.name}</h3>
                       <p className="text-xs text-gray-500">#{order._id?.slice(-8)}</p>
                     </div>
                     <StatusBadge status={order.status} />
@@ -425,7 +448,7 @@ const OrdersPage = () => {
                   <div className="space-y-3 mb-6">
                     <div className="flex items-center gap-2 text-gray-600">
                       <CalendarIcon className="h-4 w-4" />
-                      <span className="text-sm">{formatDate(order.date)}</span>
+                      <span className="text-sm">{formatDate(order.date || order.createdAt)}</span>
                     </div>
                     <div className="flex items-center gap-2 text-gray-600">
                       <CurrencyEuroIcon className="h-4 w-4" />
@@ -444,19 +467,6 @@ const OrdersPage = () => {
                 </div>
               </div>
             ))}
-          </div>
-        )}
-
-        {/* Pagination (optionnelle) */}
-        {filteredAndSortedOrders.length > 0 && (
-          <div className="mt-8 flex justify-center">
-            <div className="bg-white rounded-xl shadow-lg p-2 inline-flex gap-1">
-              <button className="px-4 py-2 text-gray-500 hover:bg-gray-50 rounded-lg transition-all duration-300">Précédent</button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg">1</button>
-              <button className="px-4 py-2 text-gray-500 hover:bg-gray-50 rounded-lg transition-all duration-300">2</button>
-              <button className="px-4 py-2 text-gray-500 hover:bg-gray-50 rounded-lg transition-all duration-300">3</button>
-              <button className="px-4 py-2 text-gray-500 hover:bg-gray-50 rounded-lg transition-all duration-300">Suivant</button>
-            </div>
           </div>
         )}
       </main>

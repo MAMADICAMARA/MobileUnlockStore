@@ -23,7 +23,15 @@ import {
   Moon,
   CreditCard,
   Shield,
-  Sparkles
+  Sparkles,
+  Smartphone,  // AJOUTÉ - pour l'icône IMEI
+  Server,      // AJOUTÉ - pour l'icône Serveur
+  Globe,       // AJOUTÉ - pour l'icône Location
+  Award,       // AJOUTÉ - pour l'icône Licences
+  Package,     // AJOUTÉ - pour usage général
+  Settings,    // AJOUTÉ - pour usage général
+  HelpCircle,  // AJOUTÉ - pour usage général
+  AlertCircle  // AJOUTÉ - pour usage général
 } from 'lucide-react';
 
 const ClientLayout = () => {
@@ -58,13 +66,23 @@ const ClientLayout = () => {
   // Navigation items avec icônes et couleurs
   const navItems = [
     { to: "/", icon: Home, label: "Accueil", color: "from-blue-400 to-cyan-400" },
+    // liens rapides vers catégories de services
+    { to: `/${role}/services/IMEI`, icon: Smartphone, label: "Services IMEI", color: "from-blue-400 to-cyan-400" },
+    { to: `/${role}/services/Server`, icon: Server, label: "Services Serveur", color: "from-orange-400 to-amber-400" },
+    { to: `/${role}/services/Rental`, icon: Globe, label: "Services Location", color: "from-purple-400 to-pink-400" },
+    { to: `/${role}/services/License`, icon: Key, label: "Services Licence", color: "from-green-400 to-emerald-400" },
     { to: `/${role}/dashboard`, icon: LayoutDashboard, label: "Tableau de bord", color: "from-purple-400 to-pink-400" },
     ...(isEmployee ? [{
       to: "/employee/works", icon: Briefcase, label: "Mes Travaux", color: "from-green-400 to-emerald-400"
     }] : []),
     { to: `/${role}/orders`, icon: ShoppingBag, label: "Mes Commandes", color: "from-pink-400 to-rose-400" },
+    // liens rapides par catégorie
+    { to: `/${role}/orders?category=IMEI`, icon: Smartphone, label: "Commandes IMEI", color: "from-pink-400 to-rose-400" },
+    { to: `/${role}/orders?category=Server`, icon: Server, label: "Commandes Serveur", color: "from-pink-400 to-rose-400" },
+    { to: `/${role}/orders?category=Rental`, icon: Globe, label: "Commandes Location", color: "from-pink-400 to-rose-400" },
+    { to: `/${role}/orders?category=License`, icon: Key, label: "Commandes Licence", color: "from-pink-400 to-rose-400" },
     { to: `/${role}/orders-history`, icon: History, label: "Historique", color: "from-orange-400 to-amber-400" },
-    { to: `/${role}/licenses`, icon: Key, label: "Mes Licences", color: "from-indigo-400 to-purple-400" },
+    { to: `/${role}/licenses`, icon: Award, label: "Mes Licences", color: "from-indigo-400 to-purple-400" },
     { to: `/${role}/tickets`, icon: Ticket, label: "Mes Tickets", color: "from-yellow-400 to-orange-400" },
     { to: `/${role}/support`, icon: Headphones, label: "Support", color: "from-teal-400 to-cyan-400" },
     ...(!isEmployee ? [{
