@@ -156,7 +156,28 @@ router.get('/licenses', protect, admin, async (req, res) => {
     res.status(500).json({ success: false, message: 'Erreur lors du chargement des licences' });
   }
 });
+router.post('/recharge-balance', protect, admin, async (req, res) => {
+  try {
+    const { email, amount } = req.body;
+    console.log('🔄 Recharge demandée:', { email, amount }); // ← ajouter
+    
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: "Cet email n'existe pas" });
+    }
 
+    user.balance += Number(amount);
+    await user.save();
+    res.status(200).json({
+      success: true,
+      message: "Balance rechargée avec succès",
+      newBalance: user.balance
+    });
+  } catch (error) {
+    console.error('❌ Erreur recharge:', error.message); // ← ajouter
+    res.status(500).json({ error: "Erreur lors de la recharge de la balance" });
+  }
+});
 // --- Statistiques du dashboard ---
 router.get('/dashboard-stats', protect, admin, async (req, res) => {
   try {
