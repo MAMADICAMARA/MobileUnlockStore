@@ -34,7 +34,7 @@ const register = async (req, res) => {
       name,
       email,
       password,
-      role: 'user',
+      role: 'Client',
       balance: 0,
       // signupCode: code,                    // ← COMMENTÉ
       // signupCodeExpires: Date.now() + 5 * 60 * 1000,  // ← COMMENTÉ

@@ -302,7 +302,7 @@ const OrdersPage = () => {
                 <div className="h-12 w-12 bg-purple-100 rounded-xl flex items-center justify-center">
                   <CurrencyEuroIcon className="h-6 w-6 text-purple-600" />
                 </div>
-                <span className="text-3xl font-bold text-gray-800">{stats.totalSpent.toFixed(2)} €</span>
+                <span className="text-3xl font-bold text-gray-800">{stats.totalSpent.toFixed(2)} FG</span>
               </div>
               <p className="text-gray-600 text-sm">Total dépensé</p>
             </div>
@@ -413,7 +413,7 @@ const OrdersPage = () => {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <span className="text-lg font-bold text-gray-900">
-                          {typeof order.price === 'number' ? `${order.price.toFixed(2)} €` : 'N/A'}
+                          {typeof order.price === 'number' ? `${order.price.toFixed(2)} FG` : 'N/A'}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center">

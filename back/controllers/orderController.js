@@ -208,7 +208,7 @@ exports.placeOrder = async (req, res) => {
           <div style="background: #f5f5f5; padding: 20px; border-radius: 10px; margin: 20px 0;">
             <h2 style="color: #2563eb; margin-top: 0;">Récapitulatif</h2>
             <p><strong>Service:</strong> ${service.name}</p>
-            <p><strong>Prix débité:</strong> ${service.price}€</p>
+            <p><strong>Prix débité:</strong> ${service.price}FG</p>
             <p><strong>Nouveau solde:</strong> ${user.balance}€</p>
             <p><strong>Numéro de transaction:</strong> ${transactionId}</p>
             

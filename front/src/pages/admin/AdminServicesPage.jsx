@@ -133,7 +133,7 @@ const AdminServicesPage = () => {
                     <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{service.name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-600 capitalize">{service.category}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-gray-900 font-medium">
-                      {service.price.toFixed(2)} €
+                      {service.price.toFixed(2)} €G
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${

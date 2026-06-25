@@ -54,7 +54,7 @@ const login = useCallback((userData) => {
   localStorage.setItem("token", raw);
 
   // 🔥 S'assurer que le rôle est défini
-  const userRole = userData.role || 'client';
+  const userRole = (userData.role || 'client').toLowerCase();
   
   // Construire l'objet utilisateur
   const userObject = {
@@ -89,7 +89,7 @@ const login = useCallback((userData) => {
           setUser({
             id: decoded.id || decoded._id || null,
             email: decoded.email || null,
-            role: decoded.role || null,
+            role: (decoded.role || null).toLowerCase(),
             name: decoded.name || decoded.username || null,
             balance: decoded.balance ?? 0,
             // Forcer confirmation côté client pour bypasser l'étape d'email
@@ -120,7 +120,7 @@ const login = useCallback((userData) => {
         setUser({
           id: decoded.id || decoded._id || null,
           email: decoded.email || null,
-          role: decoded.role || null,
+          role: (decoded.role || null).toLowerCase(),
           name: decoded.name || decoded.username || null,
           balance: decoded.balance ?? 0,
           confirmed: true,

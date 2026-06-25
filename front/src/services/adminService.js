@@ -40,7 +40,13 @@ const adminService = {
    * @param {object} serviceData - Les nouvelles données du service
    */
   updateService: (serviceId, serviceData) => api.put(`/api/admin/services/${serviceId}`, serviceData),
+// ✅ Ajouter ces 2 méthodes dans front/src/services/adminService.js
 
+// Récupérer le détail d'une commande (admin) avec infos client complètes
+getOrderById: (orderId) => api.get(`/api/orders/admin/${orderId}`),
+
+// Mettre à jour une commande (statut + livraison + notes)
+updateOrder: (orderId, data) => api.put(`/api/orders/admin/${orderId}`, data),
   /**
    * Supprime un service.
    * @param {string} serviceId - L'ID du service à supprimer

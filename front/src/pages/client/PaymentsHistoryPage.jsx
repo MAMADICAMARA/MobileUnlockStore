@@ -425,7 +425,7 @@ const PaymentsHistoryPage = () => {
                                 ? 'text-green-600 dark:text-green-400' 
                                 : 'text-red-600 dark:text-red-400'
                             }`}>
-                              {payment.amount > 0 ? '+' : ''}{payment.amount.toFixed(2)} €
+                              {payment.amount > 0 ? '+' : ''}{payment.amount.toFixed(2)} FG
                             </span>
                           </div>
                         </td>

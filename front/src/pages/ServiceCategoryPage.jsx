@@ -158,8 +158,8 @@ const ServiceCategoryPage = () => {
    
 
       {/* Hero section spécifique à la catégorie */}
-      <section className={`bg-gradient-to-r ${config.bgColor} text-white py-20`}>
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+      <section className={`bg-gradient-to-r ${config.bgColor} text-white p-5`}>
+        <div className="container mx-auto px-4 sm:px-3 lg:px-8">
           <div className="flex items-center gap-4 mb-6">
             <div className={`w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center`}>
               <IconComponent className="w-8 h-8 text-white" />
@@ -204,8 +204,8 @@ const ServiceCategoryPage = () => {
 
         {/* Message d'erreur */}
         {error && !loading && (
-          <div className="max-w-2xl mx-auto p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl text-center">
-            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <div className="max-w-xl mx-auto p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl text-center">
+            <AlertCircle className="w-12 h-15 text-red-500 mx-auto mb-3" />
             <h3 className="text-lg font-bold text-red-700 dark:text-red-400 mb-2">Erreur de chargement</h3>
             <p className="text-red-600 dark:text-red-300 mb-4">{error}</p>
             <button

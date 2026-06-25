@@ -161,6 +161,7 @@ const HomePage = () => {
         <section className="relative h-[90vh] min-h-[600px] flex items-center justify-center overflow-hidden">
           {/* Slider d'images en background avec effet parallaxe */}
           <div className="absolute inset-0 w-full h-full">
+            
             {sliderImages.map((img, idx) => (
               <div
                 key={idx}

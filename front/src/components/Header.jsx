@@ -27,7 +27,19 @@ const Header = () => {
         {/* Menu horizontal desktop */}
         <nav className="hidden md:flex gap-8 items-center">
           <Link to="/" className="text-blue-700 font-semibold hover:underline">Accueil</Link>
-          <Link to="/services" className="text-blue-700 font-semibold hover:underline">Services</Link>
+          {isAuthenticated ? (
+              <>
+                {user?.role === 'admin' ? (
+                 <></>
+                ) : (
+                 <Link to="/services" className="text-blue-700 font-semibold hover:underline">Services</Link>
+                )}
+                
+                </>   
+            ) : (
+              <>
+              </>
+            )}
           <Link to="/faq" className="text-blue-700 font-semibold hover:underline">FAQ</Link>
           <Link to="/contact" className="text-blue-700 font-semibold hover:underline">Contact</Link>
           {isAuthenticated ? (
@@ -53,7 +65,7 @@ const Header = () => {
           <nav className="bg-white w-64 h-full p-8 flex flex-col gap-6 shadow-xl animate-slide-in-left relative">
             <button className="absolute top-4 right-4 text-3xl text-blue-700" onClick={() => setMenuOpen(false)} aria-label="Fermer le menu">&times;</button>
             <Link to="/" className="text-blue-700 font-semibold text-lg" onClick={() => setMenuOpen(false)}>Accueil</Link>
-            <Link to="/services" className="text-blue-700 font-semibold text-lg" onClick={() => setMenuOpen(false)}>Services</Link>
+            {/*c'est ici longle service se trouvais */}
             <Link to="/faq" className="text-blue-700 font-semibold text-lg" onClick={() => setMenuOpen(false)}>FAQ</Link>
             <Link to="/contact" className="text-blue-700 font-semibold text-lg" onClick={() => setMenuOpen(false)}>Contact</Link>
            {isAuthenticated ? (
