@@ -214,32 +214,47 @@ exports.getServiceById = async (req, res) => {
     const service = await Service.findById(req.params.id);
 
     if (!service) {
-      return res.status(404).json({
-        success: false,
-        message: 'Service non trouvé'
-      });
+      return res.status(404).json({ success: false, message: 'Service non trouvé' });
     }
 
-    // Récupérer les champs utilisateur pour cette catégorie
-    const userFields = Service.getUserFieldsForCategory(service.category);
-    const deliveryFields = Service.getDeliveryFieldsForCategory(service.category);
-
-    res.status(200).json({
-      success: true,
-      data: {
-        ...service.toObject(),
-        userFields, // Champs que l'utilisateur doit remplir
-        deliveryFields // Champs que l'admin doit remplir pour livrer
-      }
-    });
+    res.status(200).json({ success: true, data: service.toObject() });
   } catch (error) {
     console.error('❌ Erreur getServiceById:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur serveur'
-    });
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
   }
 };
+
+// exports.getServiceById = async (req, res) => {
+//   try {
+//     const service = await Service.findById(req.params.id);
+
+//     if (!service) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'Service non trouvé'
+//       });
+//     }
+
+//     // Récupérer les champs utilisateur pour cette catégorie
+//     const userFields = Service.getUserFieldsForCategory(service.category);
+//     const deliveryFields = Service.getDeliveryFieldsForCategory(service.category);
+
+//     res.status(200).json({
+//       success: true,
+//       data: {
+//         ...service.toObject(),
+//         userFields, // Champs que l'utilisateur doit remplir
+//         deliveryFields // Champs que l'admin doit remplir pour livrer
+//       }
+//     });
+//   } catch (error) {
+//     console.error('❌ Erreur getServiceById:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Erreur serveur'
+//     });
+//   }
+// };
 
 /**
  * @desc    Récupérer les champs utilisateur pour une catégorie

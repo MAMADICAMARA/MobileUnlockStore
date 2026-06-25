@@ -90,26 +90,79 @@ router.get('/:id', protect, async (req, res) => {
   }
 });
 
+
 // ✅ POST /api/orders — Créer une commande
 router.post('/', protect, async (req, res) => {
   try {
     const userId = req.user.id || req.user._id;
-    const { serviceId, userSubmittedData, ...rest } = req.body;
+    const { serviceId, userSubmittedData } = req.body;
 
+    // Récupérer le service
+    const service = await require('../models/Service').findById(serviceId);
+    if (!service) {
+      return res.status(404).json({ success: false, message: 'Service non trouvé' });
+    }
+
+    // Récupérer l'utilisateur
+    const User = require('../models/User');
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
+    }
+
+    // Vérifier le solde
+    if (user.balance < service.price) {
+      return res.status(400).json({ success: false, message: 'Solde insuffisant' });
+    }
+
+    // Déduire le solde
+    user.balance -= service.price;
+    await user.save();
+
+    // Créer la commande
     const order = await Order.create({
       userId,
       serviceId,
+      serviceDetails: {
+        name:     service.name,
+        price:    service.price,
+        category: service.category,
+      },
       userSubmittedData: userSubmittedData || {},
+      amount:  service.price,
       status: 'pending',
-      ...rest
     });
 
-    res.status(201).json({ success: true, data: order });
+    res.status(201).json({
+      success:    true,
+      data:       order,
+      newBalance: user.balance,
+    });
   } catch (error) {
     console.error('Erreur création commande:', error);
     res.status(500).json({ success: false, message: 'Erreur lors de la création de la commande' });
   }
 });
+
+// router.post('/', protect, async (req, res) => {
+//   try {
+//     const userId = req.user.id || req.user._id;
+//     const { serviceId, userSubmittedData, ...rest } = req.body;
+
+//     const order = await Order.create({
+//       userId,
+//       serviceId,
+//       userSubmittedData: userSubmittedData || {},
+//       status: 'pending',
+//       ...rest
+//     });
+
+//     res.status(201).json({ success: true, data: order });
+//   } catch (error) {
+//     console.error('Erreur création commande:', error);
+//     res.status(500).json({ success: false, message: 'Erreur lors de la création de la commande' });
+//   }
+// });
 
 module.exports = router;
 
