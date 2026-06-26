@@ -641,7 +641,7 @@ import {
               </div>
             </div>
             
-            {/* Sélecteur de période */}
+            {/* Sélecteur de période */
             /*<div className="bg-white rounded-xl shadow-lg p-1 inline-flex">
               {['week', 'month', 'year'].map((period) => (
                 <button
@@ -661,7 +661,7 @@ import {
         </div>
       </div>
 
-      {/* Solde actuel - Carte principale */}
+      {/* Solde actuel - Carte principale */
       /*<div className="mb-10 relative group">
         <div className="absolute inset-0 bg-gradient-to-r from-green-600/20 to-emerald-600/20 rounded-3xl blur-xl group-hover:blur-2xl transition-all duration-500"></div>
         <div className="relative bg-gradient-to-br from-green-600 to-emerald-700 rounded-3xl p-8 shadow-2xl text-white overflow-hidden">
@@ -703,7 +703,7 @@ import {
 
       {/* Grille des statistiques principales */}
      /* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-        {/* Carte Commandes */}
+        {/* Carte Commandes */
        /* <div className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden">
           <div className="h-2 bg-gradient-to-r from-blue-600 to-indigo-600"></div>
           <div className="p-6">
@@ -718,7 +718,7 @@ import {
           </div>
         </div>
 
-        {/* Carte Licences */}
+        {/* Carte Licences */
         /*<div className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden">
           <div className="h-2 bg-gradient-to-r from-purple-600 to-pink-600"></div>
           <div className="p-6">
@@ -733,7 +733,7 @@ import {
           </div>
         </div>
 
-        {/* Carte Support */}
+        {/* Carte Support */
       /*  <div className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden">
           <div className="h-2 bg-gradient-to-r from-amber-600 to-orange-600"></div>
           <div className="p-6">
@@ -748,7 +748,7 @@ import {
           </div>
         </div>
 
-        {/* Carte Statistiques */}
+        {/* Carte Statistiques */
       /*  <div className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden">
           <div className="h-2 bg-gradient-to-r from-emerald-600 to-teal-600"></div>
           <div className="p-6">
@@ -766,7 +766,7 @@ import {
 
       {/* Grille détaillée 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Commandes récentes */}
+        {/* Commandes récentes */
        /* <div className="lg:col-span-2 bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
           <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4">
             <div className="flex items-center justify-between">
@@ -837,7 +837,7 @@ import {
 
         {/* Colonne de droite - Licences et Support */}
         /*<div className="space-y-6">
-          {/* Licences actives */}
+          {/* Licences actives */
           /*<div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
             <div className="bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-4">
               <div className="flex items-center gap-3">
@@ -874,7 +874,7 @@ import {
             </div>
           </div>
 
-          {/* Tickets support */}
+          {/* Tickets support */
          /* <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
             <div className="bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-4">
               <div className="flex items-center gap-3">
@@ -916,7 +916,7 @@ import {
             </div>
           </div>
 
-          {/* Sécurité */}
+          {/* Sécurité */
         /*  <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl p-6 text-white shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <ShieldCheckIcon className="h-8 w-8" />
@@ -935,7 +935,7 @@ import {
         </div>
       </div>
 
-      {/* Activité récente */}
+      {/* Activité récente */
      /* <div className="mt-8 bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/20 p-6">
         <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
           <ChartBarIcon className="h-5 w-5 text-indigo-600" />
