@@ -1,601 +1,582 @@
 // src/pages/admin/AdminOrdersPage.jsx
 import { useState, useEffect, useMemo } from 'react';
 import {
-  Search,
-  ChevronDown,
-  ChevronUp,
-  Clock,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  Eye,
-  RefreshCw,
-  Calendar,
-  User,
-  Package,
-  CreditCard,
-  MoreVertical,
-  ArrowUpDown,
-  FileText,
-  Printer,
-  ClipboardList,
-  ShieldCheck,
-  Wallet,
+  Search, ChevronDown, ChevronUp, Clock, CheckCircle, XCircle,
+  AlertCircle, Eye, RefreshCw, Calendar, User, Package, CreditCard,
+  ArrowUpDown, FileText, ClipboardList, ShieldCheck, Wallet, X,
+  TrendingUp, Filter
 } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import adminService from '../../services/adminService';
 
-// ─── Constantes ──────────────────────────────────────────────────────────────
+// ─── Constantes ───────────────────────────────────────────────────────────────
 
 const ORDER_STATUSES = [
-  { value: 'En cours',   label: 'En cours',   color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400', icon: Clock },
-  { value: 'Terminé',    label: 'Terminé',    color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',   icon: CheckCircle },
-  { value: 'En attente', label: 'En attente', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',      icon: AlertCircle },
-  { value: 'Annulé',     label: 'Annulé',     color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',          icon: XCircle },
+  { value: 'En cours',   label: 'En cours',   dot: 'bg-amber-400',  pill: 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',   icon: Clock },
+  { value: 'Terminé',    label: 'Terminé',    dot: 'bg-emerald-400',pill: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300', icon: CheckCircle },
+  { value: 'En attente', label: 'En attente', dot: 'bg-blue-400',   pill: 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',         icon: AlertCircle },
+  { value: 'Annulé',     label: 'Annulé',     dot: 'bg-red-400',    pill: 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300',             icon: XCircle },
 ];
 
-const CATEGORY_OPTIONS = ['Tous', 'IMEI', 'Server', 'Rental', 'License'];
+const CATEGORIES = ['Tous', 'IMEI', 'Server', 'Rental', 'License'];
 
-// ─── Utilitaires ─────────────────────────────────────────────────────────────
+// ─── Utils ────────────────────────────────────────────────────────────────────
 
-const formatDate = (d) =>
-  d ? new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(d)) : 'N/A';
+const fmtDate = (d) => d
+  ? new Intl.DateTimeFormat('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }).format(new Date(d))
+  : '—';
 
-const formatCurrency = (amount) =>
-  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(amount || 0);
+const fmtCurrency = (n) =>
+  new Intl.NumberFormat('fr-FR', { style:'currency', currency:'EUR' }).format(n || 0);
 
-const extractClientData = (order) => {
-  if (order.userSubmittedData && typeof order.userSubmittedData === 'object') {
-    const entries = Object.entries(order.userSubmittedData).filter(([, v]) => v !== '' && v !== null && v !== undefined);
-    if (entries.length) return entries;
-  }
-  if (order.fields && typeof order.fields === 'object') {
-    const entries = Object.entries(order.fields).filter(([, v]) => v !== '' && v !== null && v !== undefined);
-    if (entries.length) return entries;
-  }
-  return [];
+const humanize = (key) =>
+  key.replace(/([A-Z])/g,' $1').replace(/_/g,' ').trim().replace(/^\w/, c => c.toUpperCase());
+
+const extractSubmitted = (order) => {
+  const src = order.userSubmittedData || order.fields || {};
+  if (src instanceof Map) return [...src.entries()].filter(([,v]) => v !== '' && v != null);
+  return Object.entries(src).filter(([,v]) => v !== '' && v != null);
 };
 
-const humanizeKey = (key) =>
-  key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').trim()
-    .replace(/^\w/, (c) => c.toUpperCase());
+const statusConf = (s) => ORDER_STATUSES.find(x => x.value === s) || ORDER_STATUSES[2];
 
-// ─── Composants utilitaires ───────────────────────────────────────────────────
+// ─── Sous-composants ──────────────────────────────────────────────────────────
 
-const StatCard = ({ title, value, icon: Icon, color, bgColor }) => (
-  <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-gray-700">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{title}</p>
-        <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
-      </div>
-      <div className={`p-3 rounded-xl ${bgColor}`}>
-        <Icon className={`w-6 h-6 ${color}`} />
-      </div>
-    </div>
-  </div>
-);
-
-// ─── Composant section infos client enrichie ─────────────────────────────────
-
-const ClientInfoSection = ({ user }) => {
-  const roleConfig = {
-    'Admin':               { color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
-    'Utilisateur-Employer':{ color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
-    'Client':              { color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
+const KpiCard = ({ title, value, icon: Icon, accent }) => {
+  const colors = {
+    blue:   'bg-blue-50 dark:bg-blue-900/20 text-blue-500 ring-blue-100 dark:ring-blue-900',
+    green:  'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500 ring-emerald-100 dark:ring-emerald-900',
+    amber:  'bg-amber-50 dark:bg-amber-900/20 text-amber-500 ring-amber-100 dark:ring-amber-900',
+    purple: 'bg-purple-50 dark:bg-purple-900/20 text-purple-500 ring-purple-100 dark:ring-purple-900',
   };
-  const role = user?.role || 'Client';
-  const roleCls = (roleConfig[role] || roleConfig['Client']).color;
+  const [bg, ic, ring] = (colors[accent] || colors.blue).split(' ');
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
+      <div className={`w-10 h-10 ${bg} ${ic} ring-1 ${ring} rounded-xl flex items-center justify-center mb-3`}>
+        <Icon className="w-5 h-5" />
+      </div>
+      <p className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white leading-none mb-1">{value}</p>
+      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{title}</p>
+    </div>
+  );
+};
+
+const StatusPill = ({ status }) => {
+  const c = statusConf(status);
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${c.pill}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${c.dot} flex-shrink-0`} />
+      {c.label}
+    </span>
+  );
+};
+
+// ─── Modal détails ────────────────────────────────────────────────────────────
+
+const OrderModal = ({ order, onClose, onStatusChange }) => {
+  const navigate = useNavigate();
+  const submitted = extractSubmitted(order);
+  const client = order.userId || {};
+  const service = order.serviceId || {};
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
-      <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-        <User className="w-5 h-5 text-blue-500" /> Informations client
-      </h3>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-white dark:bg-slate-800 w-full sm:max-w-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-screen sm:max-h-[90vh] rounded-t-2xl">
 
-      <div className="grid grid-cols-2 gap-3 text-sm">
-
-        {/* Nom */}
-        <div>
-          <p className="text-xs text-gray-400 mb-0.5">Nom</p>
-          <p className="font-medium text-gray-900 dark:text-white">{user?.name || '—'}</p>
-        </div>
-
-        {/* Email */}
-        <div>
-          <p className="text-xs text-gray-400 mb-0.5">Email</p>
-          <p className="font-medium text-gray-900 dark:text-white break-all">{user?.email || '—'}</p>
-        </div>
-
-        {/* Rôle */}
-        <div>
-          <p className="text-xs text-gray-400 mb-0.5 flex items-center gap-1">
-            <ShieldCheck className="w-3 h-3" /> Rôle
-          </p>
-          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${roleCls}`}>
-            {role}
-          </span>
-        </div>
-
-        {/* Statut du compte */}
-        <div>
-          <p className="text-xs text-gray-400 mb-0.5">Statut du compte</p>
-          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${
-            user?.isActive
-              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-              : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-          }`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${user?.isActive ? 'bg-green-500' : 'bg-red-500'}`} />
-            {user?.isActive ? 'Actif' : 'Inactif'}
-          </span>
-        </div>
-
-        {/* Solde */}
-        <div>
-          <p className="text-xs text-gray-400 mb-0.5 flex items-center gap-1">
-            <Wallet className="w-3 h-3" /> Solde
-          </p>
-          <p className="font-semibold text-gray-900 dark:text-white">
-            {formatCurrency(user?.balance ?? 0)}
-          </p>
-        </div>
-
-        {/* Code employé (si présent) */}
-        {user?.employeeCode && (
-          <div>
-            <p className="text-xs text-gray-400 mb-0.5">Code employé</p>
-            <p className="font-mono text-sm bg-gray-100 dark:bg-gray-600 px-2 py-0.5 rounded text-gray-900 dark:text-white inline-block">
-              {user.employeeCode}
-            </p>
+        {/* Header */}
+        <div className="flex items-start justify-between px-5 pt-5 pb-4 border-b border-slate-100 dark:border-slate-700 flex-shrink-0">
+          <div className="min-w-0">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white truncate">
+              {service.name || order.serviceDetails?.name || 'Commande'}
+            </h2>
+            <p className="text-xs text-slate-400 font-mono mt-0.5 truncate">#{order._id?.slice(-12)}</p>
           </div>
-        )}
-
-        {/* Membre depuis */}
-        <div className="col-span-2">
-          <p className="text-xs text-gray-400 mb-0.5">Membre depuis</p>
-          <p className="font-medium text-gray-900 dark:text-white">
-            {user?.createdAt ? formatDate(user.createdAt) : '—'}
-          </p>
+          <button onClick={onClose} className="ml-3 p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors flex-shrink-0">
+            <X className="w-5 h-5 text-slate-400" />
+          </button>
         </div>
 
+        {/* Body scrollable */}
+        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+
+          {/* Statut + montant */}
+          <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
+            <div>
+              <p className="text-xs text-slate-400 mb-1.5">Statut actuel</p>
+              <select
+                value={order.status}
+                onChange={e => onStatusChange(order._id, e.target.value)}
+                onClick={e => e.stopPropagation()}
+                className={`text-sm font-semibold border-0 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer ${statusConf(order.status).pill}`}
+                style={{ backgroundColor: 'transparent' }}
+              >
+                {ORDER_STATUSES.map(s => (
+                  <option key={s.value} value={s.value} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-slate-400 mb-1">Montant</p>
+              <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                {fmtCurrency(order.amount || order.serviceDetails?.price || 0)}
+              </p>
+            </div>
+          </div>
+
+          {/* Client */}
+          <Section title="Client" icon={<User className="w-4 h-4 text-indigo-500" />}>
+            {client._id ? (
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Nom"    value={client.name} />
+                <Field label="Email"  value={client.email} />
+                <Field label="Rôle"   value={client.role} />
+                <Field label="Solde"  value={fmtCurrency(client.balance)} />
+                <Field label="Statut" value={
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                    client.isActive
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                      : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${client.isActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                    {client.isActive ? 'Actif' : 'Inactif'}
+                  </span>
+                } />
+                <Field label="Membre depuis" value={fmtDate(client.createdAt)} />
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400 italic">Informations client non disponibles</p>
+            )}
+          </Section>
+
+          {/* Service */}
+          <Section title="Service commandé" icon={<Package className="w-4 h-4 text-emerald-500" />}>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Nom"       value={service.name || order.serviceDetails?.name} span />
+              <Field label="Catégorie" value={service.category || order.serviceDetails?.category} />
+              <Field label="Date"      value={fmtDate(order.createdAt)} />
+            </div>
+          </Section>
+
+          {/* Données soumises */}
+          {submitted.length > 0 ? (
+            <Section
+              title={`Données client (${submitted.length})`}
+              icon={<ClipboardList className="w-4 h-4 text-purple-500" />}
+              accent="purple"
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {submitted.map(([key, value]) => (
+                  <div key={key} className="bg-white dark:bg-slate-700 rounded-xl p-3 border border-purple-100 dark:border-purple-900/30">
+                    <p className="text-xs font-semibold text-purple-500 dark:text-purple-400 uppercase tracking-wide mb-1">
+                      {humanize(key)}
+                    </p>
+                    <p className="text-sm font-mono text-slate-900 dark:text-white break-all">
+                      {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          ) : (
+            <div className="flex flex-col items-center py-6 text-center bg-slate-50 dark:bg-slate-700/30 rounded-xl">
+              <ClipboardList className="w-8 h-8 text-slate-300 dark:text-slate-600 mb-2" />
+              <p className="text-sm text-slate-400">Aucune donnée soumise par le client</p>
+            </div>
+          )}
+
+          {/* Notes admin */}
+          {order.adminNotes && (
+            <Section title="Notes admin" icon={<FileText className="w-4 h-4 text-amber-500" />} accent="amber">
+              <p className="text-sm text-slate-700 dark:text-slate-300">{order.adminNotes}</p>
+            </Section>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-700 flex gap-3 flex-shrink-0">
+          <button
+            onClick={() => navigate(`/admin/orders/${order._id}`)}
+            className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-colors"
+          >
+            Gérer la commande
+          </button>
+          <button
+            onClick={() => {
+              const next = order.status === 'En attente' ? 'En cours'
+                : order.status === 'En cours' ? 'Terminé' : 'En cours';
+              onStatusChange(order._id, next);
+            }}
+            className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-xl text-sm font-semibold transition-colors"
+          >
+            {order.status === 'Terminé' ? 'Réouvrir' : order.status === 'En attente' ? '→ En cours' : '→ Terminer'}
+          </button>
+          <button onClick={onClose}
+            className="px-4 py-2.5 border border-slate-200 dark:border-slate-600 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-xl text-sm font-medium transition-colors">
+            Fermer
+          </button>
+        </div>
       </div>
     </div>
   );
 };
+
+const Section = ({ title, icon, children, accent }) => {
+  const accents = {
+    purple: 'bg-purple-50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-900/30',
+    amber:  'bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30',
+  };
+  return (
+    <div className={`rounded-xl overflow-hidden ${accents[accent] || 'bg-slate-50 dark:bg-slate-700/40 border border-slate-100 dark:border-slate-700'}`}>
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100 dark:border-slate-700/50">
+        {icon}
+        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">{title}</h3>
+      </div>
+      <div className="p-4">{children}</div>
+    </div>
+  );
+};
+
+const Field = ({ label, value, span }) => (
+  <div className={span ? 'col-span-2' : ''}>
+    <p className="text-xs text-slate-400 mb-0.5">{label}</p>
+    <p className="text-sm font-medium text-slate-900 dark:text-white break-all">
+      {value || '—'}
+    </p>
+  </div>
+);
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 
 const AdminOrdersPage = () => {
   const [orders, setOrders]               = useState([]);
   const [loading, setLoading]             = useState(true);
+  const [refreshing, setRefreshing]       = useState(false);
   const [error, setError]                 = useState('');
-  const [filters, setFilters]             = useState({ status: 'Tous', search: '', dateRange: 'all', category: 'Tous' });
-  const [sortConfig, setSortConfig]       = useState({ key: 'date', direction: 'desc' });
+  const [filters, setFilters]             = useState({ status:'Tous', search:'', dateRange:'all', category:'Tous' });
+  const [sortConfig, setSortConfig]       = useState({ key:'date', direction:'desc' });
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [showModal, setShowModal]         = useState(false);
-  const [stats, setStats]                 = useState({ total: 0, completed: 0, pending: 0, revenue: 0 });
+  const [stats, setStats]                 = useState({ total:0, completed:0, pending:0, revenue:0 });
   const location = useLocation();
 
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const qcat = params.get('category');
+    const qcat = new URLSearchParams(location.search).get('category');
     if (qcat) setFilters(f => ({ ...f, category: qcat }));
     fetchOrders();
   }, [location.search]);
 
-  const fetchOrders = async () => {
-    setLoading(true);
+  const fetchOrders = async (isRefresh = false) => {
+    isRefresh ? setRefreshing(true) : setLoading(true);
     setError('');
     try {
-      const response = await adminService.getAllOrders();
-      const list = response.data?.data || response.data || [];
-      const arr  = Array.isArray(list) ? list : [];
+      const res = await adminService.getAllOrders();
+      const arr = Array.isArray(res.data?.data) ? res.data.data
+        : Array.isArray(res.data) ? res.data : [];
       setOrders(arr);
-      computeStats(arr);
-    } catch (err) {
-      console.error('Erreur chargement commandes:', err);
+      const completed = arr.filter(o => o.status === 'Terminé').length;
+      const pending   = arr.filter(o => o.status === 'En cours' || o.status === 'En attente').length;
+      const revenue   = arr.filter(o => o.status === 'Terminé').reduce((s,o) => s + (o.serviceDetails?.price || o.amount || 0), 0);
+      setStats({ total: arr.length, completed, pending, revenue });
+    } catch {
       setError('Impossible de charger les commandes.');
-      setOrders([]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const computeStats = (arr) => {
-    const completed = arr.filter(o => o.status === 'Terminé').length;
-    const pending   = arr.filter(o => o.status === 'En cours' || o.status === 'En attente').length;
-    const revenue   = arr.filter(o => o.status === 'Terminé').reduce((s, o) => s + (o.serviceDetails?.price || o.amount || 0), 0);
-    setStats({ total: arr.length, completed, pending, revenue });
-  };
-
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSort = (key) => {
-    setSortConfig(prev => ({ key, direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc' }));
-  };
-
-  const handleStatusChange = async (orderId, newStatus) => {
+  const handleStatusChange = async (id, status) => {
     try {
-      await adminService.updateOrderStatus(orderId, newStatus);
-      const updated = orders.map(o => o._id === orderId ? { ...o, status: newStatus } : o);
-      setOrders(updated);
-      computeStats(updated);
-      if (selectedOrder?._id === orderId) setSelectedOrder(prev => ({ ...prev, status: newStatus }));
-    } catch (err) {
-      console.error('Erreur mise à jour statut:', err);
-    }
+      await adminService.updateOrderStatus(id, status);
+      setOrders(prev => {
+        const updated = prev.map(o => o._id === id ? { ...o, status } : o);
+        const completed = updated.filter(o => o.status === 'Terminé').length;
+        const pending   = updated.filter(o => o.status === 'En cours' || o.status === 'En attente').length;
+        const revenue   = updated.filter(o => o.status === 'Terminé').reduce((s,o) => s + (o.serviceDetails?.price || o.amount || 0), 0);
+        setStats({ total: updated.length, completed, pending, revenue });
+        return updated;
+      });
+      if (selectedOrder?._id === id) setSelectedOrder(p => ({ ...p, status }));
+    } catch (e) { console.error(e); }
   };
-
-  const openModal  = (order) => { setSelectedOrder(order); setShowModal(true); };
-  const closeModal = () => { setShowModal(false); setSelectedOrder(null); };
 
   const filteredOrders = useMemo(() => {
     let list = [...orders];
-
-    if (filters.category !== 'Tous') {
-      list = list.filter(o => {
-        const cat = (o.serviceId?.category || o.serviceDetails?.category || o.category || '').toString();
-        return cat.toLowerCase() === filters.category.toLowerCase();
-      });
-    }
-    if (filters.status !== 'Tous') {
+    if (filters.category !== 'Tous')
+      list = list.filter(o => (o.serviceId?.category || o.serviceDetails?.category || '').toLowerCase() === filters.category.toLowerCase());
+    if (filters.status !== 'Tous')
       list = list.filter(o => o.status === filters.status);
-    }
     if (filters.search) {
       const q = filters.search.toLowerCase();
       list = list.filter(o =>
         o.userId?.name?.toLowerCase().includes(q) ||
         o.userId?.email?.toLowerCase().includes(q) ||
-        o.serviceId?.name?.toLowerCase().includes(q) ||
-        o.serviceDetails?.name?.toLowerCase().includes(q)
+        (o.serviceId?.name || o.serviceDetails?.name || '').toLowerCase().includes(q)
       );
     }
     if (filters.dateRange !== 'all') {
-      const now   = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const today = new Date(); today.setHours(0,0,0,0);
       list = list.filter(o => {
         const d = new Date(o.createdAt);
         if (filters.dateRange === 'today') return d >= today;
-        if (filters.dateRange === 'week')  { const w = new Date(today); w.setDate(w.getDate() - 7); return d >= w; }
-        if (filters.dateRange === 'month') { const m = new Date(today); m.setMonth(m.getMonth() - 1); return d >= m; }
+        if (filters.dateRange === 'week')  { const w = new Date(today); w.setDate(w.getDate()-7); return d >= w; }
+        if (filters.dateRange === 'month') { const m = new Date(today); m.setMonth(m.getMonth()-1); return d >= m; }
         return true;
       });
     }
-
-    list.sort((a, b) => {
-      let av, bv;
-      if (sortConfig.key === 'client')       { av = a.userId?.name || ''; bv = b.userId?.name || ''; }
-      else if (sortConfig.key === 'service') { av = a.serviceId?.name || a.serviceDetails?.name || ''; bv = b.serviceId?.name || b.serviceDetails?.name || ''; }
-      else if (sortConfig.key === 'date')    { av = new Date(a.createdAt); bv = new Date(b.createdAt); }
-      else if (sortConfig.key === 'price')   { av = a.amount || a.serviceDetails?.price || 0; bv = b.amount || b.serviceDetails?.price || 0; }
-      else return 0;
-      if (av < bv) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (av > bv) return sortConfig.direction === 'asc' ? 1 : -1;
+    list.sort((a,b) => {
+      const dir = sortConfig.direction === 'asc' ? 1 : -1;
+      if (sortConfig.key === 'client') return dir * (a.userId?.name || '').localeCompare(b.userId?.name || '');
+      if (sortConfig.key === 'service') return dir * ((a.serviceId?.name || a.serviceDetails?.name || '').localeCompare(b.serviceId?.name || b.serviceDetails?.name || ''));
+      if (sortConfig.key === 'date')  return dir * (new Date(a.createdAt) - new Date(b.createdAt));
+      if (sortConfig.key === 'price') return dir * ((a.amount || a.serviceDetails?.price || 0) - (b.amount || b.serviceDetails?.price || 0));
       return 0;
     });
-
     return list;
   }, [orders, filters, sortConfig]);
 
-  const SortIcon = ({ column }) => {
-    if (sortConfig.key !== column) return <ArrowUpDown className="w-4 h-4 ml-1 opacity-0 group-hover:opacity-50" />;
-    return sortConfig.direction === 'asc' ? <ChevronUp className="w-4 h-4 ml-1" /> : <ChevronDown className="w-4 h-4 ml-1" />;
-  };
+  const SortBtn = ({ col, label }) => (
+    <button onClick={() => setSortConfig(p => ({ key: col, direction: p.key === col && p.direction === 'asc' ? 'desc' : 'asc' }))}
+      className="group inline-flex items-center gap-1 hover:text-slate-700 dark:hover:text-slate-200 transition-colors text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+      {label}
+      {sortConfig.key === col
+        ? (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)
+        : <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-60" />}
+    </button>
+  );
 
   return (
-    <div className="space-y-6">
+    <div className="w-full py-4 sm:py-6 px-4 sm:px-6 overflow-x-hidden">
+      <div className="max-w-7xl mx-auto space-y-5">
 
-      {/* En-tête */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 text-transparent bg-clip-text">
-            Gestion des Commandes
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Gérez et suivez toutes les commandes de la plateforme</p>
+        {/* ── En-tête ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold text-indigo-500 uppercase tracking-widest mb-1">Administration</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">Commandes</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Gérez et suivez toutes les commandes</p>
+          </div>
+          <button onClick={() => fetchOrders(true)} disabled={refreshing}
+            className="self-start sm:self-auto flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm disabled:opacity-60">
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Actualiser
+          </button>
         </div>
-        <button
-          onClick={fetchOrders}
-          className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Actualiser
-        </button>
-      </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total commandes"     value={stats.total}                   icon={Package}      color="text-blue-500"   bgColor="bg-blue-50 dark:bg-blue-900/20" />
-        <StatCard title="Commandes terminées" value={stats.completed}               icon={CheckCircle}  color="text-green-500"  bgColor="bg-green-50 dark:bg-green-900/20" />
-        <StatCard title="En cours"            value={stats.pending}                 icon={Clock}        color="text-yellow-500" bgColor="bg-yellow-50 dark:bg-yellow-900/20" />
-        <StatCard title="Chiffre d'affaires"  value={formatCurrency(stats.revenue)} icon={CreditCard}   color="text-purple-500" bgColor="bg-purple-50 dark:bg-purple-900/20" />
-      </div>
+        {/* ── KPIs ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <KpiCard title="Total commandes"    value={stats.total}                    icon={Package}     accent="blue" />
+          <KpiCard title="Terminées"          value={stats.completed}                icon={CheckCircle} accent="green" />
+          <KpiCard title="En cours"           value={stats.pending}                  icon={Clock}       accent="amber" />
+          <KpiCard title="Chiffre d'affaires" value={fmtCurrency(stats.revenue)}     icon={CreditCard}  accent="purple" />
+        </div>
 
-      {/* Filtres */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-4 border border-gray-100 dark:border-gray-700">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input type="text" name="search" placeholder="Rechercher par client ou service..." value={filters.search} onChange={handleFilterChange}
-              className="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-          </div>
-          {[
-            { name: 'category',  options: CATEGORY_OPTIONS.map(c => ({ value: c, label: c === 'Tous' ? 'Toutes catégories' : c })) },
-            { name: 'status',    options: [{ value: 'Tous', label: 'Tous les statuts' }, ...ORDER_STATUSES.map(s => ({ value: s.value, label: s.label }))] },
-            { name: 'dateRange', options: [{ value: 'all', label: 'Toutes les dates' }, { value: 'today', label: "Aujourd'hui" }, { value: 'week', label: '7 derniers jours' }, { value: 'month', label: '30 derniers jours' }] },
-          ].map(({ name, options }) => (
-            <select key={name} name={name} value={filters[name]} onChange={handleFilterChange}
-              className="md:w-48 px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
-              {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          ))}
-          <div className="flex items-center px-4 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-            <span className="text-sm text-blue-600 dark:text-blue-400 font-medium">{filteredOrders.length} résultat(s)</span>
+        {/* ── Filtres ── */}
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-4">
+          <div className="flex flex-col gap-3">
+            {/* Recherche */}
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input type="text" placeholder="Rechercher par client, email ou service…"
+                value={filters.search} onChange={e => setFilters(p => ({ ...p, search: e.target.value }))}
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+            {/* Selects — scroll horizontal empêché : flex-wrap */}
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key:'category',  opts: CATEGORIES.map(c => ({ v:c, l: c==='Tous' ? 'Toutes catégories' : c })) },
+                { key:'status',    opts: [{ v:'Tous', l:'Tous les statuts' }, ...ORDER_STATUSES.map(s => ({ v:s.value, l:s.label }))] },
+                { key:'dateRange', opts: [{ v:'all', l:'Toutes les dates' },{ v:'today', l:"Aujourd'hui" },{ v:'week', l:'7 jours' },{ v:'month', l:'30 jours' }] },
+              ].map(({ key, opts }) => (
+                <select key={key} value={filters[key]} onChange={e => setFilters(p => ({ ...p, [key]: e.target.value }))}
+                  className="flex-1 min-w-[130px] px-3 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-sm text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  {opts.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+                </select>
+              ))}
+              <div className="flex items-center px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl flex-shrink-0">
+                <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">
+                  {filteredOrders.length} résultat{filteredOrders.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Tableau */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-16 h-16 border-4 border-gray-200 dark:border-gray-700 border-t-blue-500 rounded-full animate-spin" />
-            <p className="mt-4 text-gray-500 dark:text-gray-400">Chargement des commandes...</p>
-          </div>
-        ) : error ? (
-          <div className="text-center py-20">
-            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <p className="text-red-500 mb-4">{error}</p>
-            <button onClick={fetchOrders} className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Réessayer</button>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                  {[
-                    { key: 'client',  label: 'Client' },
-                    { key: 'service', label: 'Service' },
-                    { key: 'date',    label: 'Date' },
-                    { key: 'price',   label: 'Prix', align: 'right' },
-                    { key: 'status',  label: 'Statut' },
-                    { key: 'actions', label: 'Actions', align: 'center' },
-                  ].map(col => (
-                    <th key={col.key} className={`px-6 py-4 text-${col.align || 'left'} text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
-                      {col.key !== 'actions' && col.key !== 'status' ? (
-                        <button onClick={() => handleSort(col.key)} className="group flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-300 transition-colors">
-                          {col.label}<SortIcon column={col.key} />
-                        </button>
-                      ) : col.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredOrders.length > 0 ? filteredOrders.map(order => {
-                  const statusConf = ORDER_STATUSES.find(s => s.value === order.status) || ORDER_STATUSES[2];
-                  const clientData = extractClientData(order);
-                  return (
-                    <tr key={order._id} onClick={() => openModal(order)} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
-                            <User className="h-5 w-5 text-white" />
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900 dark:text-white">{order.userId?.name || 'Utilisateur'}</div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">{order.userId?.email}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {order.serviceId?.name || order.serviceDetails?.name || 'Service'}
-                        </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {order.serviceId?.category || order.serviceDetails?.category || '—'}
-                        </div>
-                        {clientData.length > 0 && (
-                          <div className="flex items-center gap-1 mt-1">
-                            <ClipboardList className="w-3 h-3 text-indigo-400" />
-                            <span className="text-xs text-indigo-500">{clientData.length} champ(s)</span>
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                          <Calendar className="w-4 h-4 mr-2" />
-                          {formatDate(order.createdAt)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-lg font-bold text-gray-900 dark:text-white">
-                          {formatCurrency(order.amount || order.serviceDetails?.price || 0)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4" onClick={e => e.stopPropagation()}>
-                        <select
-                          value={order.status}
-                          onChange={e => handleStatusChange(order._id, e.target.value)}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium border-0 focus:ring-2 focus:ring-offset-2 ${statusConf.color}`}
-                          style={{ backgroundColor: 'transparent' }}
-                        >
-                          {ORDER_STATUSES.map(s => (
-                            <option key={s.value} value={s.value} className="bg-white dark:bg-slate-800">{s.label}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-6 py-4 text-center" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-center gap-2">
-                          <button onClick={() => openModal(order)} className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Voir détails">
-                            <Eye className="w-5 h-5" />
-                          </button>
-                          <button className="p-2 text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors" title="Plus d'options">
-                            <MoreVertical className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </td>
+        {/* ── Contenu ── */}
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-24 gap-4">
+              <div className="w-12 h-12 border-4 border-slate-200 dark:border-slate-700 border-t-indigo-500 rounded-full animate-spin" />
+              <p className="text-sm text-slate-400">Chargement des commandes…</p>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-24 gap-4 text-center px-6">
+              <AlertCircle className="w-12 h-12 text-red-400" />
+              <p className="text-slate-600 dark:text-slate-300">{error}</p>
+              <button onClick={() => fetchOrders()} className="px-5 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors">
+                Réessayer
+              </button>
+            </div>
+          ) : filteredOrders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-24 gap-3 text-center px-6">
+              <Package className="w-12 h-12 text-slate-300 dark:text-slate-600" />
+              <p className="text-slate-500 dark:text-slate-400 font-medium">Aucune commande trouvée</p>
+              <p className="text-slate-400 dark:text-slate-500 text-sm">Modifiez vos filtres pour voir plus de résultats.</p>
+            </div>
+          ) : (
+            <>
+              {/* ── TABLE desktop (md+) ── */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="min-w-full">
+                  <thead>
+                    <tr className="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">
+                      <th className="px-5 py-3.5 text-left"><SortBtn col="client" label="Client" /></th>
+                      <th className="px-5 py-3.5 text-left"><SortBtn col="service" label="Service" /></th>
+                      <th className="px-5 py-3.5 text-left"><SortBtn col="date" label="Date" /></th>
+                      <th className="px-5 py-3.5 text-right"><SortBtn col="price" label="Prix" /></th>
+                      <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Statut</th>
+                      <th className="px-5 py-3.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Action</th>
                     </tr>
-                  );
-                }) : (
-                  <tr>
-                    <td colSpan="6" className="px-6 py-20 text-center">
-                      <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500 dark:text-gray-400">Aucune commande trouvée</p>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
+                  </thead>
+                  <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
+                    {filteredOrders.map(order => {
+                      const submitted = extractSubmitted(order);
+                      return (
+                        <tr key={order._id}
+                          onClick={() => setSelectedOrder(order)}
+                          className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer group">
+                          {/* Client */}
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0 text-white text-sm font-bold">
+                                {(order.userId?.name || 'U').charAt(0).toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                                  {order.userId?.name || 'Utilisateur'}
+                                </p>
+                                <p className="text-xs text-slate-400 truncate">{order.userId?.email || '—'}</p>
+                              </div>
+                            </div>
+                          </td>
+                          {/* Service */}
+                          <td className="px-5 py-4">
+                            <p className="text-sm font-medium text-slate-900 dark:text-white truncate max-w-[160px]">
+                              {order.serviceId?.name || order.serviceDetails?.name || '—'}
+                            </p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-xs text-slate-400">
+                                {order.serviceId?.category || order.serviceDetails?.category || '—'}
+                              </span>
+                              {submitted.length > 0 && (
+                                <span className="text-xs text-indigo-500 flex items-center gap-0.5">
+                                  <ClipboardList className="w-3 h-3" />{submitted.length}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          {/* Date */}
+                          <td className="px-5 py-4 text-sm text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                            {fmtDate(order.createdAt)}
+                          </td>
+                          {/* Prix */}
+                          <td className="px-5 py-4 text-right">
+                            <span className="text-sm font-bold text-slate-900 dark:text-white">
+                              {fmtCurrency(order.amount || order.serviceDetails?.price || 0)}
+                            </span>
+                          </td>
+                          {/* Statut */}
+                          <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
+                            <select
+                              value={order.status}
+                              onChange={e => handleStatusChange(order._id, e.target.value)}
+                              className={`text-xs font-semibold border-0 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer ${statusConf(order.status).pill}`}
+                              style={{ backgroundColor:'transparent' }}
+                            >
+                              {ORDER_STATUSES.map(s => (
+                                <option key={s.value} value={s.value} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+                                  {s.label}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          {/* Action */}
+                          <td className="px-5 py-4 text-center" onClick={e => e.stopPropagation()}>
+                            <button onClick={() => setSelectedOrder(order)}
+                              className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors">
+                              <Eye className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-        {!loading && !error && filteredOrders.length > 0 && (
-          <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Affichage de <span className="font-medium">{filteredOrders.length}</span> commande(s)
-            </p>
-          </div>
-        )}
+              {/* ── LISTE mobile (< md) ── */}
+              <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700">
+                {filteredOrders.map(order => {
+                  const submitted = extractSubmitted(order);
+                  const sc = statusConf(order.status);
+                  return (
+                    <button key={order._id} onClick={() => setSelectedOrder(order)}
+                      className="w-full text-left px-4 py-4 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors active:bg-slate-100">
+                      <div className="flex items-start gap-3">
+                        {/* Avatar */}
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0 text-white font-bold text-sm">
+                          {(order.userId?.name || 'U').charAt(0).toUpperCase()}
+                        </div>
+                        {/* Infos */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 mb-0.5">
+                            <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                              {order.userId?.name || 'Utilisateur'}
+                            </p>
+                            <StatusPill status={order.status} />
+                          </div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate mb-1">
+                            {order.serviceId?.name || order.serviceDetails?.name || 'Service'}
+                          </p>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-bold text-slate-900 dark:text-white">
+                              {fmtCurrency(order.amount || order.serviceDetails?.price || 0)}
+                            </span>
+                            <span className="text-xs text-slate-400">{fmtDate(order.createdAt)}</span>
+                            {submitted.length > 0 && (
+                              <span className="text-xs text-indigo-500 flex items-center gap-0.5">
+                                <ClipboardList className="w-3 h-3" />{submitted.length} champ{submitted.length > 1 ? 's' : ''}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {/* Chevron */}
+                        <ChevronDown className="w-4 h-4 text-slate-300 flex-shrink-0 -rotate-90 mt-1" />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Footer */}
+              <div className="px-5 py-3.5 bg-slate-50 dark:bg-slate-700/30 border-t border-slate-100 dark:border-slate-700">
+                <p className="text-xs text-slate-400">
+                  {filteredOrders.length} commande{filteredOrders.length !== 1 ? 's' : ''} affichée{filteredOrders.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* ── MODAL DÉTAILS ── */}
-      {showModal && selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-
-            {/* Header */}
-            <div className="flex justify-between items-start p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Détails de la commande</h2>
-                <p className="text-xs text-gray-400 font-mono mt-1">{selectedOrder._id}</p>
-              </div>
-              <button onClick={closeModal} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                <XCircle className="w-6 h-6 text-gray-500" />
-              </button>
-            </div>
-
-            {/* Contenu scrollable */}
-            <div className="overflow-y-auto flex-1 p-6 space-y-5">
-
-              {/* Statut + Montant */}
-              <div className="flex items-center justify-between bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-4 border border-blue-100 dark:border-blue-800">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Statut</p>
-                  <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium ${ORDER_STATUSES.find(s => s.value === selectedOrder.status)?.color}`}>
-                    {selectedOrder.status}
-                  </span>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-gray-500 mb-1">Montant</p>
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                    {formatCurrency(selectedOrder.amount || selectedOrder.serviceDetails?.price || 0)}
-                  </p>
-                </div>
-              </div>
-
-              {/* ✅ Informations client enrichies */}
-              <ClientInfoSection user={selectedOrder.userId} />
-
-              {/* Service commandé */}
-              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                  <Package className="w-5 h-5 text-green-500" /> Service commandé
-                </h3>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="col-span-2">
-                    <p className="text-xs text-gray-400 mb-0.5">Nom</p>
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      {selectedOrder.serviceId?.name || selectedOrder.serviceDetails?.name || '—'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400 mb-0.5">Catégorie</p>
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      {selectedOrder.serviceId?.category || selectedOrder.serviceDetails?.category || '—'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400 mb-0.5">Date</p>
-                    <p className="font-medium text-gray-900 dark:text-white">{formatDate(selectedOrder.createdAt)}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Données soumises par le client */}
-              {(() => {
-                const entries = extractClientData(selectedOrder);
-                if (!entries.length) return (
-                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-center">
-                    <ClipboardList className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                    <p className="text-sm text-gray-400">Aucune donnée soumise par le client</p>
-                  </div>
-                );
-                return (
-                  <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-200 dark:border-indigo-800 overflow-hidden">
-                    <div className="flex items-center gap-2 px-4 py-3 bg-indigo-100 dark:bg-indigo-900/40 border-b border-indigo-200 dark:border-indigo-800">
-                      <ClipboardList className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                      <h3 className="font-semibold text-indigo-700 dark:text-indigo-300">
-                        Informations soumises par le client
-                      </h3>
-                      <span className="ml-auto text-xs bg-indigo-200 dark:bg-indigo-800 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full">
-                        {entries.length} champ(s)
-                      </span>
-                    </div>
-                    <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {entries.map(([key, value]) => (
-                        <div key={key} className="bg-white dark:bg-slate-700 rounded-lg p-3 shadow-sm">
-                          <p className="text-xs font-semibold text-indigo-500 dark:text-indigo-400 uppercase tracking-wide mb-1">
-                            {humanizeKey(key)}
-                          </p>
-                          <p className="text-sm font-medium text-gray-900 dark:text-white break-all">
-                            {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Notes admin */}
-              {selectedOrder.adminNotes && (
-                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 border border-amber-200 dark:border-amber-800">
-                  <h3 className="font-semibold text-amber-700 dark:text-amber-300 mb-2 flex items-center gap-2">
-                    <FileText className="w-5 h-5" /> Notes admin
-                  </h3>
-                  <p className="text-sm text-gray-700 dark:text-gray-300">{selectedOrder.adminNotes}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Footer actions */}
-            <div className="flex gap-3 p-6 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
-              <button
-                onClick={() => {
-                  const next = selectedOrder.status === 'En attente' ? 'En cours'
-                    : selectedOrder.status === 'En cours' ? 'Terminé' : 'En cours';
-                  handleStatusChange(selectedOrder._id, next);
-                }}
-                className="flex-1 px-4 py-3 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-xl hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
-              >
-                <CheckCircle className="w-5 h-5" />
-                {selectedOrder.status === 'Terminé' ? 'Réouvrir' : selectedOrder.status === 'En attente' ? 'Commencer' : 'Terminer'}
-              </button>
-              <button
-                onClick={() => window.print()}
-                className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-200 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
-              >
-                <Printer className="w-5 h-5" /> Imprimer
-              </button>
-              <button onClick={closeModal} className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all text-sm font-medium">
-                Fermer
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* ── Modal ── */}
+      {selectedOrder && (
+        <OrderModal
+          order={selectedOrder}
+          onClose={() => setSelectedOrder(null)}
+          onStatusChange={handleStatusChange}
+        />
       )}
     </div>
   );

@@ -8,11 +8,14 @@ import FAQPage from './pages/FAQPage';
 import ContactPage from './pages/ContactPage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
+import ResetPasswordPage from './pages/auth/ResetPasswordPage';
+import CodeVerificationPage from './pages/auth/CodeVerificationPage';
 import AdminLayout from "./components/layout/AdminLayout";
 import ClientLayout from "./components/layout/ClientLayout";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import AdminRechargeUserPage from "./pages/admin/AdminRechargeUserPage";
 import DashboardPage from "./pages/client/DashboardPage";
+import PublicLayout from "./components/layout/PublicLayout";
 
 // Importation des pages de l'espace employé
 import EmployeeWorksPage from './pages/employee/EmployeeWorksPage';
@@ -71,13 +74,17 @@ function App() {
       <ToastContainer position="top-right" autoClose={3000} />
       <Routes>
         {/* Routes publiques */}
-        <Route path="/" element={<HomePage />} />
-        <Route path="/services" element={<ServicesPage />} />
-        <Route path="/services/:category" element={<ServiceCategoryPage />} /> {/* Page de catégorie */}
-        <Route path="/faq" element={<FAQPage />} />
-        <Route path="/contact" element={<ContactPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        <Route element={<PublicLayout />}>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/services" element={<ServicesPage />} />
+          <Route path="/services/:category" element={<ServiceCategoryPage />} /> {/* Page de catégorie */}
+          <Route path="/faq" element={<FAQPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ResetPasswordPage />} />
+          <Route path="/verify-code" element={<CodeVerificationPage />} />
+        </Route>
 
         {/* Routes protégées pour l'espace employé */}
         <Route path="/employee" element={

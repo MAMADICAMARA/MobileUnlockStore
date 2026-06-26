@@ -89,10 +89,7 @@ const OrderDetailPage = () => {
    */
   const formatPrice = (price) => {
     if (!price && price !== 0) return '—';
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: 'EUR'
-    }).format(price);
+    return `${new Intl.NumberFormat('fr-FR').format(price)} FG`;
   };
 
   /**
@@ -161,7 +158,7 @@ const OrderDetailPage = () => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
+      <div className="w-full py-20 flex flex-col items-center justify-center">
         <div className="relative">
           <div className="w-16 h-16 border-4 border-gray-200 dark:border-gray-700 border-t-blue-500 rounded-full animate-spin"></div>
           <div className="absolute inset-0 flex items-center justify-center">

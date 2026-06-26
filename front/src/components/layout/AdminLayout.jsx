@@ -242,8 +242,10 @@ const AdminLayout = () => {
             <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse animation-delay-2000"></div>
             
             {/* Contenu avec fond glassmorphism */}
-            <div className="relative z-10 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 p-6 shadow-xl">
-              <Outlet />
+            <div className="relative mx-auto w-full max-w-6xl">
+              <div className="relative z-10 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 p-6 shadow-xl">
+                <Outlet />
+              </div>
             </div>
           </div>
         </main>

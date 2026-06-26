@@ -133,7 +133,7 @@ const AddFundsPage = () => {
         <h2 className="text-xl font-bold mb-4">Recharger votre solde</h2>
         <div className="mb-6">
           <span className="block text-sm font-medium text-gray-700 mb-2">Votre solde actuel</span>
-          <span className="text-2xl font-bold text-green-600">{user?.balance !== undefined ? user.balance.toFixed(2) : '0.00'} €</span>
+          <span className="text-2xl font-bold text-green-600">{user?.balance !== undefined ? user.balance.toFixed(2) : '0.00'} FG</span>
         </div>
         <form onSubmit={handleAddFunds} className="space-y-6">
           <div className="mb-6">

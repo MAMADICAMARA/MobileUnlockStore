@@ -174,7 +174,7 @@ const OrdersPage = () => {
   };
 
   if (loading) return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
+    <div className="w-full py-20 flex items-center justify-center">
       <div className="text-center">
         <div className="relative">
           <div className="absolute inset-0 rounded-full bg-blue-500 blur-xl opacity-20 animate-pulse"></div>
@@ -192,7 +192,7 @@ const OrdersPage = () => {
   );
 
   if (error) return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-4">
+    <div className="w-full py-20 flex items-center justify-center p-4">
       <div className="bg-white/90 backdrop-blur-xl border-l-4 border-red-500 p-8 rounded-2xl shadow-2xl max-w-lg w-full">
         <div className="flex items-center gap-4 mb-6">
           <div className="bg-red-100 rounded-full p-3">
@@ -219,9 +219,9 @@ const OrdersPage = () => {
   const hasOrders = Array.isArray(filteredAndSortedOrders) && filteredAndSortedOrders.length > 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+    <div className="w-full">
       
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
+      <main className="w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
         
         {/* Header avec statistiques */}
         <div className="mb-10">
@@ -452,7 +452,7 @@ const OrdersPage = () => {
                     </div>
                     <div className="flex items-center gap-2 text-gray-600">
                       <CurrencyEuroIcon className="h-4 w-4" />
-                      <span className="text-sm font-semibold">{order.price?.toFixed(2)} €</span>
+                      <span className="text-sm font-semibold">{order.price?.toFixed(2)} FG</span>
                     </div>
                   </div>
                   

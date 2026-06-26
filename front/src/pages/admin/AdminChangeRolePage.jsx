@@ -99,7 +99,7 @@ const AdminChangeRolePage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4 sm:p-6 lg:p-8">
+    <div className="w-full py-4 sm:py-6 lg:py-8">
       
       {/* Header */}
       <div className="mb-10">
@@ -137,7 +137,7 @@ const AdminChangeRolePage = () => {
               <div className="space-y-2">
                 <label 
                   htmlFor="email" 
-                  className="block text-sm font-semibold text-gray-700 flex items-center gap-2"
+                  className="text-sm font-semibold text-gray-700 flex items-center gap-2"
                 >
                   <EnvelopeIcon className="h-4 w-4 text-indigo-600" />
                   Email de l'utilisateur
@@ -173,7 +173,7 @@ const AdminChangeRolePage = () => {
               <div className="space-y-2">
                 <label 
                   htmlFor="role"
-                  className="block text-sm font-semibold text-gray-700 flex items-center gap-2"
+                  className="text-sm font-semibold text-gray-700 flex items-center gap-2"
                 >
                   <ShieldCheckIcon className="h-4 w-4 text-indigo-600" />
                   Nouveau rôle

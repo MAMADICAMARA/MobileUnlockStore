@@ -67,7 +67,7 @@ const EmployeeWorksPage = () => {
                                 </p>
                                 <div className="flex justify-between items-center text-sm">
                                     <span className="text-blue-600 font-medium">
-                                        Prix: {work.price} €
+                                        Prix: {work.price} FG
                                     </span>
                                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                                         work.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :

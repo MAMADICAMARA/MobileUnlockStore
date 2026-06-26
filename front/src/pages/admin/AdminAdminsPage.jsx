@@ -93,7 +93,7 @@ const AdminAdminsPage = () => {
   };
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="w-full py-20 flex items-center justify-center">
       <div className="text-center transform transition-all duration-500 scale-100">
         <div className="relative">
           <div className="absolute inset-0 rounded-full bg-blue-500 blur-xl opacity-20 animate-pulse"></div>
@@ -106,7 +106,7 @@ const AdminAdminsPage = () => {
   );
 
   if (error) return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+    <div className="w-full py-20 flex items-center justify-center p-4">
       <div className="bg-white/80 backdrop-blur-lg border-l-4 border-red-500 p-8 rounded-2xl shadow-2xl max-w-lg w-full">
         <div className="flex items-center gap-4 mb-4">
           <div className="bg-red-100 rounded-full p-3">
@@ -126,7 +126,7 @@ const AdminAdminsPage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 p-4 sm:p-6 lg:p-8">
+    <div className="w-full py-4 sm:py-6 lg:py-8 px-4 sm:px-6 lg:px-8">
       {/* Header avec effet de verre */}
       <div className="mb-8 relative">
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-indigo-600/10 rounded-3xl blur-3xl"></div>

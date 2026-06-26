@@ -1,3 +1,4 @@
+// src/pages/client/AddFundsPage.jsx
 import { useState } from 'react';
 import { CreditCard, DollarSign, History, MessageCircle, Shield, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
@@ -11,190 +12,155 @@ const AddFundsPage = () => {
   const predefinedAmounts = [50, 100, 250, 500, 1000];
 
   const paymentMethods = [
-    {
-      id: 'admin',
-      name: 'Contact Admin',
-      description: 'Contactez admin via WhatsApp pour recharge manuelle',
-      icon: MessageCircle
-    },
-    {
-      id: 'bank',
-      name: 'Virement Bancaire',
-      description: 'Virement direct sur notre compte',
-      icon: CreditCard
-    },
-    {
-      id: 'card',
-      name: 'Carte Bancaire',
-      description: 'Paiement securise par carte',
-      icon: Shield
-    }
+    { id: 'admin', name: 'Contact Admin',     description: 'Contactez admin via WhatsApp pour recharge manuelle', icon: MessageCircle },
+    { id: 'bank',  name: 'Virement Bancaire', description: 'Virement direct sur notre compte',                    icon: CreditCard },
+    { id: 'card',  name: 'Carte Bancaire',    description: 'Paiement sécurisé par carte',                         icon: Shield },
   ];
-
-  const handleAmountChange = (value) => {
-    setAmount(value);
-  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-
-    if (amount <= 0) {
-      alert('Veuillez entrer un montant valide');
-      return;
-    }
-
+    if (amount <= 0) { alert('Veuillez entrer un montant valide'); return; }
     if (selectedMethod === 'admin') {
-      const adminPhone = '224611066809';
-      const whatsappMessage = encodeURIComponent(
-        `Bonjour Admin, je souhaite ajouter ${amount}EUR a mon compte (ID: ${user?._id?.slice(-8)}). Solde actuel: ${user?.balance || 0}EUR.`
+      const msg = encodeURIComponent(
+        `Bonjour Admin, je souhaite ajouter ${amount} FG à mon compte (ID: ${user?._id?.slice(-8)}). Solde actuel: ${user?.balance || 0} FG.`
       );
-      window.open(`https://wa.me/${adminPhone}?text=${whatsappMessage}`, '_blank');
+      window.open(`https://wa.me/224611066809?text=${msg}`, '_blank');
       setSubmitted(true);
       setTimeout(() => setSubmitted(false), 3000);
     } else if (selectedMethod === 'bank') {
-      alert('Virement bancaire: Contactez admin pour details');
-    } else if (selectedMethod === 'card') {
-      alert('Paiement par carte: Integration en cours');
+      alert("Virement bancaire : contactez l'admin pour les détails.");
+    } else {
+      alert('Paiement par carte : intégration en cours.');
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-slate-900 dark:to-slate-800">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* En-tete */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">
+    <div className="w-full">
+      <main className="w-full max-w-6xl mx-auto px-2 py-2 sm:px-6 sm:py-8">
+
+        {/* En-tête */}
+        <div className="text-center mb-6 sm:mb-10">
+          <h1 className="text-2xl sm:text-4xl font-bold mb-2">
             <span className="bg-gradient-to-r from-blue-600 to-purple-600 text-transparent bg-clip-text">
               Ajouter des Fonds
             </span>
           </h1>
-          <p className="text-xl text-gray-600 dark:text-gray-400">
-            Rechargez votre compte pour acceder a nos services
+          <p className="text-sm sm:text-lg text-gray-500 dark:text-gray-400">
+            Rechargez votre compte pour accéder à nos services
           </p>
         </div>
 
-        <div className="grid gap-8 max-w-6xl mx-auto lg:grid-cols-2">
-          {/* Colonne gauche */}
-          <div className="space-y-8">
-            {/* Carte de solde */}
-            <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-xl font-semibold">Solde actuel</h2>
-                <CreditCard className="w-8 h-8 text-blue-100" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
+
+          {/* ── Colonne gauche ── */}
+          <div className="space-y-4">
+
+            {/* Carte solde — sans cadre blanc autour sur mobile */}
+            <div className="overflow-hidden rounded-xl sm:rounded-2xl shadow sm:shadow-lg bg-gradient-to-br from-blue-500 to-purple-600 p-5 sm:p-6 text-white">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base sm:text-lg font-semibold">Solde actuel</h2>
+                <CreditCard className="w-6 h-6 text-blue-100" />
               </div>
-              <div className="text-5xl font-bold mb-2">
-                {(user?.balance || 0).toFixed(2)} EUR
+              <div className="flex items-baseline gap-1 mb-1">
+                <span className="text-3xl sm:text-5xl font-black leading-none">
+                  {(user?.balance || 0).toFixed(2)}
+                </span>
+                <span className="text-xl sm:text-2xl font-bold">FG</span>
               </div>
-              <p className="text-blue-100 mb-6">
-                Compte: #{user?._id?.slice(-8) || 'N/A'}
+              <p className="text-blue-100 text-xs sm:text-sm mb-4">
+                Compte : #{user?._id?.slice(-8) || 'N/A'}
               </p>
-              <div className="pt-6 border-t border-white/20">
-                <p className="text-sm text-blue-100">
-                  Votre solde sera credite immediatement apres confirmation
+              <div className="pt-3 border-t border-white/20">
+                <p className="text-xs text-blue-100">
+                  Votre solde sera crédité immédiatement après confirmation
                 </p>
               </div>
             </div>
 
             {/* Avantages */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-                Avantages
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <p className="text-gray-700 dark:text-gray-300">
-                    Acces immediat a tous nos services
-                  </p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <p className="text-gray-700 dark:text-gray-300">
-                    Paiement securise et crypyffe
-                  </p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <p className="text-gray-700 dark:text-gray-300">
-                    Support client 24/7
-                  </p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <p className="text-gray-700 dark:text-gray-300">
-                    Aucun frais cache
-                  </p>
-                </div>
+            <div className="overflow-hidden rounded-xl sm:rounded-2xl shadow sm:shadow-lg bg-white dark:bg-slate-800 p-4 sm:p-5">
+              <h3 className="text-base font-bold text-gray-900 dark:text-white mb-3">Avantages</h3>
+              <div className="space-y-2">
+                {[
+                  'Accès immédiat à tous nos services',
+                  'Paiement sécurisé et crypté',
+                  'Support client 24/7',
+                  'Aucun frais caché',
+                ].map((text) => (
+                  <div key={text} className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    <p className="text-gray-700 dark:text-gray-300 text-sm">{text}</p>
+                  </div>
+                ))}
               </div>
             </div>
 
             {/* Historique */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
-              <div className="flex items-center gap-2 mb-4">
-                <History className="w-5 h-5 text-blue-500" />
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                  Historique
-                </h3>
+            <div className="hidden sm:block overflow-hidden rounded-xl sm:rounded-2xl shadow sm:shadow-lg bg-white dark:bg-slate-800 p-4 sm:p-5">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white">Historique</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Accédez à votre historique dans votre profil</p>
+                </div>
               </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Accedez a votre historique dans votre profil
-              </p>
             </div>
           </div>
 
-          {/* Colonne droite: Formulaire */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8 border border-gray-100 dark:border-gray-700">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-              Montant et methode
+          {/* ── Colonne droite : formulaire ── */}
+          <div className="overflow-hidden rounded-xl sm:rounded-2xl shadow sm:shadow-lg bg-white dark:bg-slate-800 p-4 sm:p-6">
+            <h2 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white mb-5">
+              Montant et méthode
             </h2>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Montants prédéfinis */}
+            <form onSubmit={handleSubmit} className="space-y-5">
+
+              {/* Montants rapides */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-2">
                   Montants rapides
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2">
                   {predefinedAmounts.map((value) => (
                     <button
                       key={value}
                       type="button"
-                      onClick={() => handleAmountChange(value)}
-                      className={`py-3 px-4 rounded-lg font-semibold transition-all ${
+                      onClick={() => setAmount(value)}
+                      className={`py-2.5 px-3 rounded-xl font-semibold text-sm transition-all ${
                         amount === value
-                          ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg'
+                          ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow'
                           : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200'
                       }`}
                     >
-                      {value}EUR
+                      {value} FG
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Montant personnalise */}
+              {/* Montant personnalisé */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Montant personnalise
+                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-2">
+                  Montant personnalisé
                 </label>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5">
                   <input
                     type="number"
                     min="1"
                     max="10000"
                     value={amount}
-                    onChange={(e) => handleAmountChange(Number(e.target.value))}
-                    className="flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                    placeholder="Entrez un montant"
+                    onChange={(e) => setAmount(Number(e.target.value))}
+                    className="flex-1 bg-transparent focus:outline-none dark:text-white text-sm"
+                    placeholder="Montant"
                   />
-                  <span className="text-2xl font-bold text-gray-900 dark:text-white">EUR</span>
+                  <span className="font-bold text-gray-700 dark:text-white text-sm">FG</span>
                 </div>
               </div>
 
-              {/* Methode de paiement */}
+              {/* Méthode de paiement */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  Methode de paiement
+                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-2">
+                  Méthode de paiement
                 </label>
                 <div className="space-y-2">
                   {paymentMethods.map((method) => {
@@ -203,11 +169,11 @@ const AddFundsPage = () => {
                     return (
                       <label
                         key={method.id}
-                        className="relative flex items-start p-4 border-2 rounded-xl cursor-pointer transition-all"
-                        style={{
-                          borderColor: isSelected ? 'rgb(59, 130, 246)' : 'rgb(229, 231, 235)',
-                          backgroundColor: isSelected ? 'rgb(239, 246, 255)' : 'rgb(249, 250, 251)'
-                        }}
+                        className={`flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer transition-all ${
+                          isSelected
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30'
+                        }`}
                       >
                         <input
                           type="radio"
@@ -215,15 +181,12 @@ const AddFundsPage = () => {
                           value={method.id}
                           checked={isSelected}
                           onChange={(e) => setSelectedMethod(e.target.value)}
-                          className="w-4 h-4 mt-1"
+                          className="w-4 h-4 flex-shrink-0"
                         />
-                        <div className="ml-4 flex-1">
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            {method.name}
-                          </p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                            {method.description}
-                          </p>
+                        <Icon className={`w-5 h-5 flex-shrink-0 ${isSelected ? 'text-blue-500' : 'text-gray-400'}`} />
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900 dark:text-white text-sm break-words">{method.name}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 break-words">{method.description}</p>
                         </div>
                       </label>
                     );
@@ -231,47 +194,39 @@ const AddFundsPage = () => {
                 </div>
               </div>
 
-              {/* Resume */}
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                <p className="text-sm text-gray-700 dark:text-gray-300">
-                  <span className="font-semibold">Montant a recharger: </span>
-                  <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    {amount.toFixed(2)}EUR
-                  </span>
-                </p>
+              {/* Résumé */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 flex items-baseline justify-between min-w-0 shadow-sm">
+                <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">Montant à recharger</span>
+                <span className="flex items-baseline gap-1 text-lg font-black text-blue-600 dark:text-blue-400 min-w-0 break-words">
+                  {Number(amount).toFixed(2)}
+                  <span className="text-sm font-semibold">FG</span>
+                </span>
               </div>
 
-              {/* Message de succes */}
+              {/* Succès */}
               {submitted && (
-                <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl flex items-start gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <p className="text-sm text-green-700 dark:text-green-400">
-                    Demande envoyee! Admin vous contactera bientot.
-                  </p>
+                <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 rounded-xl flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                  <p className="text-sm text-green-700 dark:text-green-400">Demande envoyée ! L'admin vous contactera bientôt.</p>
                 </div>
               )}
 
               {/* Bouton */}
               <button
                 type="submit"
-                className="w-full py-3 px-6 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg font-semibold transition-all"
+                className="w-full py-3 px-6 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg font-bold transition-all flex items-center justify-center gap-2 text-sm"
               >
-                <div className="flex items-center justify-center gap-2">
-                  <DollarSign className="w-5 h-5" />
-                  Recharger {amount.toFixed(2)}EUR
-                </div>
+                <DollarSign className="w-5 h-5" />
+                Recharger {Number(amount).toFixed(2)} FG
               </button>
             </form>
 
-            {/* Conditions */}
-            <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-700">
-              <p className="text-xs text-gray-600 dark:text-gray-400">
-                En cliquant, vous acceptez nos conditions d'utilisation et politique de confidentialite.
-              </p>
-            </div>
+            <p className="mt-4 text-xs text-gray-400 dark:text-gray-500 text-center">
+              En continuant, vous acceptez nos conditions d'utilisation.
+            </p>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

@@ -46,7 +46,7 @@ const AdminPaymentsPage = () => {
             {payments.map(payment => (
               <tr key={payment._id}>
                 <td className="px-6 py-4 text-blue-600">{payment.user?.name || payment.user?.email || 'Utilisateur'}</td>
-                <td className="px-6 py-4 text-right text-blue-700 font-semibold">{payment.amount.toFixed(2)} €</td>
+                <td className="px-6 py-4 text-right text-blue-700 font-semibold">{payment.amount.toFixed(2)} FG</td>
                 <td className="px-6 text-blue-600 py-4">{payment.date ? payment.date : payment.createdAt}</td>
                 <td className="px-6 text-blue-600 py-4">
                   <StatusBadge status={payment.status} />

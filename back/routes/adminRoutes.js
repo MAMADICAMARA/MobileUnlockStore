@@ -51,7 +51,7 @@ router.post('/recharge-balance', protect, admin, async (req, res) => {
     await createNotification({
       userId: user._id,
       title: '💰 Solde rechargé',
-      message: `Votre solde a été rechargé de ${Number(amount).toFixed(2)} €. Nouveau solde : ${user.balance.toFixed(2)} €.`,
+      message: `Votre solde a été rechargé de ${Number(amount).toFixed(2)} FG. Nouveau solde : ${user.balance.toFixed(2)} FG.`,
       type: 'success',
     });
 

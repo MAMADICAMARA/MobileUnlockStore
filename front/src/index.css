@@ -7,14 +7,26 @@
   font-weight: 400;
 
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color: rgba(15, 23, 42, 0.95);
+  background-color: #f8fafc;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+.page-shell {
+  min-height: 100vh;
+  background-color: #f8fafc;
+}
+
+.page-container {
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 1rem 0;
+}
+
 /* Ajoute ces animations dans ton fichier CSS global (ex: index.css) */
 /* Ajoute dans ton fichier CSS global (index.css) si pas déjà présent */
 

@@ -91,7 +91,7 @@ const AdminContentPage = () => {
   const categories = ['all', ...new Set(faq.map(item => item.category))];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 p-4 sm:p-6 lg:p-8">
+    <div className="w-full py-4 sm:py-6 lg:py-8 px-4 sm:px-6 lg:px-8">
       
       {/* Header avec effet de verre */}
       <div className="mb-8 relative">

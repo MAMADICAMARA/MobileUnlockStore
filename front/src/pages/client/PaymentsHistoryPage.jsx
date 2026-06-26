@@ -34,10 +34,7 @@ const formatDate = (dateString) => {
 };
 
 const formatCurrency = (amount) => {
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'EUR'
-  }).format(amount);
+  return `${new Intl.NumberFormat('fr-FR').format(amount)} FG`;
 };
 
 const StatusBadge = ({ status }) => {
@@ -562,7 +559,7 @@ const PaymentsHistoryPage = () => {
                     ? 'text-green-600 dark:text-green-400' 
                     : 'text-red-600 dark:text-red-400'
                 }`}>
-                  {selectedPayment.amount > 0 ? '+' : ''}{selectedPayment.amount.toFixed(2)} €
+                  {selectedPayment.amount > 0 ? '+' : ''}{selectedPayment.amount.toFixed(2)} FG
                 </p>
               </div>
 

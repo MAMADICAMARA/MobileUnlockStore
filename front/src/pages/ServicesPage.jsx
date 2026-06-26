@@ -166,10 +166,18 @@ const ServicesPage = () => {
   }, [services, filter, searchTerm]);
 
   // Gestion de l'ouverture du modal
+  // const handleServiceClick = (service) => {
+  //   setSelectedService(service);
+  //   setIsModalOpen(true);
+  // };
   const handleServiceClick = (service) => {
-    setSelectedService(service);
-    setIsModalOpen(true);
-  };
+  if (!isAuthenticated) {
+    navigate('/login');
+    return;
+  }
+  setSelectedService(service);
+  setIsModalOpen(true);
+};
 
   // Gestion de la fermeture du modal
   const handleCloseModal = () => {

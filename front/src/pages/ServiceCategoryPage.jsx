@@ -2,7 +2,7 @@
 // Page générique affichant les services d'une catégorie spécifique
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { AlertCircle, Smartphone, Key, Globe, Server, Sparkles, Loader } from 'lucide-react';
 import ServiceCard from '../components/ServiceCard';
 import ServiceModal from '../components/ServiceModal';
@@ -14,8 +14,10 @@ import { useAuth } from '../hooks/useAuth';
  * Route: /services/:category
  */
 const ServiceCategoryPage = () => {
-    const { category: rawCategory } = useParams(); // param may come lowercase
+  const { category: rawCategory } = useParams();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // normaliser la catégorie pour correspondre aux valeurs du backend
   const category = (() => {
@@ -33,7 +35,7 @@ const ServiceCategoryPage = () => {
       case 'licence':
         return 'License';
       default:
-        return rawCategory; // laisse le raw si inconnu, sera géré ailleurs
+        return rawCategory;
     }
   })();
 
@@ -45,6 +47,18 @@ const ServiceCategoryPage = () => {
   // État pour le modal de commande
   const [selectedService, setSelectedService] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Gestion du clic sur un service — redirige vers login si non connecté
+  const handleServiceClick = (service) => {
+    if (!user) {
+      navigate('/login', {
+        state: { from: location.pathname }
+      });
+      return;
+    }
+    setSelectedService(service);
+    setIsModalOpen(true);
+  };
 
   // Configuration par catégorie
   const categoryConfig = {
@@ -85,17 +99,13 @@ const ServiceCategoryPage = () => {
   // Récupère les services de la catégorie
   useEffect(() => {
     window.scrollTo(0, 0);
-    
+
     const fetchServices = async () => {
       setLoading(true);
       setError('');
       try {
-        // Récupérer les services filtrés par catégorie (API attend valeur exactement comme dans la DB)
-        const response = await serviceService.getServices({
-          category: category
-        });
+        const response = await serviceService.getServices({ category });
 
-        // Extraire les services de la réponse
         let servicesData = [];
         if (response?.data) {
           if (Array.isArray(response.data)) {
@@ -109,7 +119,6 @@ const ServiceCategoryPage = () => {
           servicesData = response;
         }
 
-        // Filtrer par catégorie en cas de besoin
         servicesData = servicesData.filter(s =>
           (s.category || s.type) === category
         );
@@ -137,25 +146,21 @@ const ServiceCategoryPage = () => {
   const config = categoryConfig[category] || categoryConfig['IMEI'];
   const IconComponent = config.icon;
 
-  // si catégorie non reconnue (ne fait partie d'aucune config), on affiche message
   if (!categoryConfig[category]) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center">
-        <Header />
         <main className="text-center p-6">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-2">Catégorie inconnue</h1>
           <p>La catégorie «{rawCategory}» n'est pas reconnue.</p>
           <p>Veuillez vérifier l'URL ou retournez à la <a href="/services" className="text-blue-600 underline">page des services</a>.</p>
         </main>
-        <Footer />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-900 flex flex-col">
-   
 
       {/* Hero section spécifique à la catégorie */}
       <section className={`bg-gradient-to-r ${config.bgColor} text-white p-5`}>
@@ -170,7 +175,6 @@ const ServiceCategoryPage = () => {
               </h1>
             </div>
           </div>
-
           <p className="text-xl text-white/90 max-w-2xl">
             {config.description}
           </p>
@@ -187,6 +191,22 @@ const ServiceCategoryPage = () => {
               {services.length} services dans cette catégorie
             </span>
           </div>
+
+          {/* Message d'invitation à se connecter si non authentifié */}
+          {!user && (
+            <div className="mt-4 inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700">
+              <AlertCircle className="w-5 h-5 text-amber-500" />
+              <span className="text-sm text-amber-700 dark:text-amber-300">
+                <button
+                  onClick={() => navigate('/login', { state: { from: location.pathname } })}
+                  className="font-semibold underline hover:text-amber-900"
+                >
+                  Connectez-vous
+                </button>
+                {' '}pour passer une commande
+              </span>
+            </div>
+          )}
         </div>
 
         {/* État de chargement */}
@@ -225,17 +245,11 @@ const ServiceCategoryPage = () => {
                 key={service._id}
                 className="transform transition-all duration-500 hover:scale-105 cursor-pointer animate-fadeIn"
                 style={{ animationDelay: `${index * 100}ms` }}
-                onClick={() => {
-                  setSelectedService(service);
-                  setIsModalOpen(true);
-                }}
+                onClick={() => handleServiceClick(service)}
               >
                 <ServiceCard
                   service={service}
-                  onClick={() => {
-                    setSelectedService(service);
-                    setIsModalOpen(true);
-                  }}
+                  onClick={() => handleServiceClick(service)}
                 />
               </div>
             ))}

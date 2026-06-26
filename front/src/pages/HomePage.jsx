@@ -87,7 +87,7 @@ const services = [
     icon: Smartphone,
     title: 'Déblocage iPhone',
     description: 'iCloud, MDM, mot de passe oublié - Tous modèles',
-    price: 'À partir de 29.99€',
+    price: 'À partir de 29.99 FG',
     color: 'from-blue-500 to-cyan-500',
     features: ['iPhone 6 à 15', 'iCloud Activation', 'MDM Enterprise']
   },
@@ -95,7 +95,7 @@ const services = [
     icon: Phone,
     title: 'Déblocage Android',
     description: 'FRP, verrouillage écran, compte Google',
-    price: 'À partir de 19.99€',
+    price: 'À partir de 19.99 FG',
     color: 'from-purple-500 to-pink-500',
     features: ['Samsung, Huawei, Xiaomi', 'FRP Bypass', 'Compte Google']
   },
@@ -103,7 +103,7 @@ const services = [
     icon: Tablet,
     title: 'Déblocage Tablette',
     description: 'iPad, Samsung Tab, Huawei MediaPad',
-    price: 'À partir de 24.99€',
+    price: 'À partir de 24.99 FG',
     color: 'from-green-500 to-emerald-500',
     features: ['Toutes marques', 'iCloud iPad', 'FRP Tablette']
   },

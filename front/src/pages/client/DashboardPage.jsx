@@ -167,7 +167,7 @@ const DashboardPage = () => {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center">
+      <div className="w-full py-20 flex items-center justify-center">
         <div className="text-center">
           <UserCircleIcon className="h-20 w-20 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-600">Veuillez vous connecter pour accéder à votre tableau de bord.</p>
@@ -177,7 +177,7 @@ const DashboardPage = () => {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center">
+    <div className="w-full py-20 flex items-center justify-center">
       <div className="text-center">
         <div className="relative">
           <div className="absolute inset-0 rounded-full bg-indigo-500 blur-xl opacity-20 animate-pulse"></div>
@@ -197,7 +197,7 @@ const DashboardPage = () => {
   );
 
   if (error) return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center p-4">
+    <div className="w-full py-20 flex items-center justify-center p-4">
       <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl max-w-lg w-full p-8 border border-red-100">
         <div className="flex items-center gap-4 mb-6">
           <div className="bg-red-100 rounded-full p-4">
@@ -221,7 +221,7 @@ const DashboardPage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4 sm:p-6 lg:p-8">
+    <div className="w-full py-4 sm:py-6 lg:py-8">
       
       {/* Header avec bienvenue personnalisée */}
       <div className="mb-10 relative">
@@ -278,7 +278,7 @@ const DashboardPage = () => {
               <div>
                 <p className="text-green-100 text-lg font-medium mb-1">Solde disponible</p>
                 <p className="text-5xl font-black tracking-tight">
-                  {user?.balance !== undefined ? formatPrice(user.balance) : '0.00'} €
+                  {user?.balance !== undefined ? formatPrice(user.balance) : '0.00'} FG
                 </p>
               </div>
             </div>
@@ -420,7 +420,7 @@ const DashboardPage = () => {
                           {orderStatus}
                         </span>
                         <span className="font-bold text-gray-900">
-                          {formatPrice(orderPrice)} €
+                          {formatPrice(orderPrice)} FG
                         </span>
                       </div>
                     </div>
