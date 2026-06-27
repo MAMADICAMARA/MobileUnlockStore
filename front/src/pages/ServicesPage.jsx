@@ -1,6 +1,6 @@
 // src/pages/ServicesPage.jsx
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Search, 
   Filter, 
@@ -9,7 +9,6 @@ import {
   Globe, 
   CreditCard,
   X,
-  ChevronRight,
   Sparkles,
   AlertCircle,
   Server,
@@ -24,74 +23,48 @@ import { useAuth } from '../context/AuthContext';
 
 const ServicesPage = () => {
   const { user, isAuthenticated } = useAuth();
-  const navigate = useNavigate();
-  
-  // États pour les données, le chargement et les erreurs
-  const [services, setServices] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const navigate  = useNavigate();
+  const location  = useLocation();
 
-  // États pour les filtres et la recherche
-  const [filter, setFilter] = useState('Tous');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
-
-  // États pour le modal de commande
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedService, setSelectedService] = useState(null);
+  const [services, setServices]                   = useState([]);
+  const [loading, setLoading]                     = useState(true);
+  const [error, setError]                         = useState('');
+  const [filter, setFilter]                       = useState('Tous');
+  const [searchTerm, setSearchTerm]               = useState('');
+  const [showFilters, setShowFilters]             = useState(false);
+  const [isModalOpen, setIsModalOpen]             = useState(false);
+  const [selectedService, setSelectedService]     = useState(null);
   const [showInsufficientModal, setShowInsufficientModal] = useState(false);
+  const [pageLoaded, setPageLoaded]               = useState(false);
 
-  // Animation de chargement
-  const [pageLoaded, setPageLoaded] = useState(false);
-  useEffect(() => {
-    setPageLoaded(true);
-  }, []);
+  useEffect(() => { setPageLoaded(true); }, []);
 
-  // Récupération des services au chargement du composant
+  // Récupération des services
   useEffect(() => {
     const fetchServices = async () => {
       setLoading(true);
       setError('');
       try {
         const response = await serviceService.getServices();
-        console.log('✅ Réponse brute:', response);
-        
-        // CORRECTION: Extraire correctement les données selon la structure
+
         let servicesData = [];
-        
         if (response?.data) {
           if (Array.isArray(response.data)) {
             servicesData = response.data;
-            console.log('📦 servicesData est un tableau direct');
-          } 
-          else if (response.data?.data && Array.isArray(response.data.data)) {
+          } else if (response.data?.data && Array.isArray(response.data.data)) {
             servicesData = response.data.data;
-            console.log('📦 servicesData est dans response.data.data');
-          }
-          else if (response.data?.services && Array.isArray(response.data.services)) {
+          } else if (response.data?.services && Array.isArray(response.data.services)) {
             servicesData = response.data.services;
-            console.log('📦 servicesData est dans response.data.services');
           }
-          else {
-            console.warn('⚠️ Structure inattendue:', response.data);
-            servicesData = [];
-          }
-        } 
-        else if (Array.isArray(response)) {
+        } else if (Array.isArray(response)) {
           servicesData = response;
-          console.log('📦 response est directement un tableau');
         }
-        
-        console.log(`📊 ${servicesData.length} services chargés`);
+
         setServices(servicesData);
-        
       } catch (err) {
-        console.error('❌ Erreur lors du fetch des services :', err);
+        console.error('Erreur fetch services:', err);
         if (err?.response) {
-          console.error('Response status:', err.response.status, 'data:', err.response.data);
-          setError(`Erreur serveur: ${err.response.status} - ${err.response.data?.message || JSON.stringify(err.response.data)}`);
-        } else if (err?.message) {
-          setError(err.message);
+          setError(`Erreur serveur: ${err.response.status} - ${err.response.data?.message || ''}`);
         } else {
           setError('Impossible de charger les services. Vérifiez la connexion au backend.');
         }
@@ -102,62 +75,34 @@ const ServicesPage = () => {
     fetchServices();
   }, []);
 
-  // ✅ CORRECTION: Grouper les services par catégorie pour l'affichage
+  // Grouper par catégorie
   const servicesByCategory = useMemo(() => {
     if (!Array.isArray(services)) return {};
-    
     const grouped = {};
     services.forEach(service => {
-      // Déterminer la catégorie (priorité à category, fallback type)
       const category = service.category || service.type || 'Autre';
-      
-      // Normaliser les catégories pour correspondre aux 4 types
-      let normalizedCategory = category;
-      if (category === 'Licence' || category === 'License') {
-        normalizedCategory = 'License';
-      } else if (category === 'Remote') {
-        normalizedCategory = 'Rental';
-      } else if (category === 'Déverrouillage IMEI' || category === 'IMEI') {
-        normalizedCategory = 'IMEI';
-      } else if (category === 'Server') {
-        normalizedCategory = 'Server';
-      }
-      
-      if (!grouped[normalizedCategory]) {
-        grouped[normalizedCategory] = [];
-      }
-      grouped[normalizedCategory].push(service);
+      let normalized = category;
+      if (category === 'Licence' || category === 'License')          normalized = 'License';
+      else if (category === 'Remote')                                  normalized = 'Rental';
+      else if (category === 'Déverrouillage IMEI' || category === 'IMEI') normalized = 'IMEI';
+      else if (category === 'Server')                                  normalized = 'Server';
+      if (!grouped[normalized]) grouped[normalized] = [];
+      grouped[normalized].push(service);
     });
-    
     return grouped;
   }, [services]);
 
-  // Logique de filtrage et de recherche
+  // Filtrage + recherche
   const filteredServices = useMemo(() => {
-    if (!Array.isArray(services)) {
-      console.warn('⚠️ services n\'est pas un tableau:', services);
-      return [];
-    }
-    
+    if (!Array.isArray(services)) return [];
     return services
       .filter(service => {
         if (filter === 'Tous') return true;
-        
         const category = service.category || service.type || '';
-        
-        // Mapping des filtres vers les catégories
-        if (filter === 'IMEI') {
-          return category === 'IMEI' || category === 'Déverrouillage IMEI';
-        }
-        if (filter === 'License') {
-          return category === 'License' || category === 'Licence';
-        }
-        if (filter === 'Rental') {
-          return category === 'Rental' || category === 'Remote';
-        }
-        if (filter === 'Server') {
-          return category === 'Server';
-        }
+        if (filter === 'IMEI')    return category === 'IMEI' || category === 'Déverrouillage IMEI';
+        if (filter === 'License') return category === 'License' || category === 'Licence';
+        if (filter === 'Rental')  return category === 'Rental' || category === 'Remote';
+        if (filter === 'Server')  return category === 'Server';
         return true;
       })
       .filter(service =>
@@ -165,34 +110,32 @@ const ServicesPage = () => {
       );
   }, [services, filter, searchTerm]);
 
-  // Gestion de l'ouverture du modal
-  // const handleServiceClick = (service) => {
-  //   setSelectedService(service);
-  //   setIsModalOpen(true);
-  // };
+  // ✅ FIX : Si non connecté → redirection login avec retour sur cette page
   const handleServiceClick = (service) => {
-  if (!isAuthenticated) {
-    navigate('/login');
-    return;
-  }
-  setSelectedService(service);
-  setIsModalOpen(true);
-};
+    if (!isAuthenticated || !user) {
+      navigate('/login', { state: { from: location.pathname } });
+      return;
+    }
+    if (user?.role === 'admin') {
+      alert('Un administrateur ne peut pas passer de commande.');
+      return;
+    }
+    setSelectedService(service);
+    setIsModalOpen(true);
+  };
 
-  // Gestion de la fermeture du modal
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedService(null);
   };
 
-  // Gestion de la commande depuis le modal
   const handleOrderFromModal = (service) => {
     if (!isAuthenticated) {
-      alert("Veuillez vous connecter pour commander un service.");
+      navigate('/login', { state: { from: location.pathname } });
       return;
     }
     if (user?.role === 'admin') {
-      alert("Un administrateur ne peut pas passer de commande.");
+      alert('Un administrateur ne peut pas passer de commande.');
       return;
     }
     if (user?.balance < service.price) {
@@ -200,54 +143,28 @@ const ServicesPage = () => {
       setIsModalOpen(false);
       return;
     }
-    // ✅ CORRECTION: Rediriger vers le formulaire dynamique avec la catégorie
     navigate(`/services/${service._id}/order`);
   };
 
-  // ✅ CORRECTION: Configuration des catégories
   const categories = [
-    { 
-      id: 'IMEI', 
-      label: 'Services IMEI', 
-      icon: Smartphone, 
-      color: 'from-blue-500 to-cyan-500',
-      description: 'Déblocage et vérification par IMEI'
-    },
-    { 
-      id: 'Server', 
-      label: 'Services Serveur', 
-      icon: Server, 
-      color: 'from-orange-500 to-red-500',
-      description: 'Hébergement et services serveur'
-    },
-    { 
-      id: 'Rental', 
-      label: 'Location & Remote', 
-      icon: Wifi, 
-      color: 'from-purple-500 to-pink-500',
-      description: 'Assistance à distance et location'
-    },
-    { 
-      id: 'License', 
-      label: 'Licences', 
-      icon: Key, 
-      color: 'from-green-500 to-emerald-500',
-      description: 'Licences logicielles et clés d\'activation'
-    }
+    { id: 'IMEI',    label: 'Services IMEI',      icon: Smartphone, color: 'from-blue-500 to-cyan-500',    description: 'Déblocage et vérification par IMEI' },
+    { id: 'Server',  label: 'Services Serveur',    icon: Server,     color: 'from-orange-500 to-red-500',   description: 'Hébergement et services serveur' },
+    { id: 'Rental',  label: 'Location & Remote',   icon: Wifi,       color: 'from-purple-500 to-pink-500',  description: 'Assistance à distance et location' },
+    { id: 'License', label: 'Licences',            icon: Key,        color: 'from-green-500 to-emerald-500',description: "Licences logicielles et clés d'activation" },
   ];
 
-  // Onglets de filtrage
   const filterTabs = [
     { id: 'Tous', label: 'Tous les services', icon: Sparkles, color: 'from-blue-400 to-cyan-400' },
-    ...categories
+    ...categories,
   ];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-slate-900 dark:to-slate-800">
       <Header />
-      
+
       <main className={`container mx-auto px-4 sm:px-6 lg:px-8 py-12 transition-opacity duration-700 ${pageLoaded ? 'opacity-100' : 'opacity-0'}`}>
-        {/* En-tête de page */}
+
+        {/* En-tête */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-200 dark:border-blue-800 mb-4">
             <Sparkles className="w-4 h-4 text-blue-500" />
@@ -255,16 +172,30 @@ const ServicesPage = () => {
               {filteredServices.length} services disponibles
             </span>
           </div>
-          
           <h1 className="text-5xl md:text-6xl font-bold mb-4">
             <span className="bg-gradient-to-r from-blue-600 to-purple-600 text-transparent bg-clip-text">
               Nos Services
             </span>
           </h1>
-          
           <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
             Découvrez notre gamme complète de services. Cliquez sur un service pour plus de détails.
           </p>
+
+          {/* ✅ Badge informatif si non connecté */}
+          {!isAuthenticated && (
+            <div className="mt-4 inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700">
+              <AlertCircle className="w-5 h-5 text-amber-500" />
+              <span className="text-sm text-amber-700 dark:text-amber-300">
+                <button
+                  onClick={() => navigate('/login', { state: { from: location.pathname } })}
+                  className="font-semibold underline hover:text-amber-900"
+                >
+                  Connectez-vous
+                </button>
+                {' '}pour commander un service
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Barre de recherche */}
@@ -286,7 +217,7 @@ const ServicesPage = () => {
             </button>
           </div>
 
-          {/* Filtres dépliants */}
+          {/* Filtres */}
           <div className={`transition-all duration-300 overflow-hidden ${showFilters ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
             <div className="flex flex-wrap justify-center gap-2 p-2">
               {filterTabs.map((tab) => (
@@ -309,7 +240,6 @@ const ServicesPage = () => {
             </div>
           </div>
 
-          {/* Résultats de recherche */}
           {searchTerm && (
             <div className="text-center mt-4 text-gray-600 dark:text-gray-400">
               {filteredServices.length} résultat(s) pour "{searchTerm}"
@@ -317,7 +247,7 @@ const ServicesPage = () => {
           )}
         </div>
 
-        {/* État de chargement */}
+        {/* Chargement */}
         {loading && (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="relative">
@@ -330,7 +260,7 @@ const ServicesPage = () => {
           </div>
         )}
 
-        {/* Message d'erreur */}
+        {/* Erreur */}
         {error && (
           <div className="max-w-2xl mx-auto p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl text-center">
             <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
@@ -345,34 +275,27 @@ const ServicesPage = () => {
           </div>
         )}
 
-        {/* ✅ CORRECTION: Affichage des services par catégorie */}
+        {/* Affichage des services */}
         {!loading && !error && (
           <>
             {filter === 'Tous' ? (
-              // Affichage groupé par catégories
               <div className="space-y-16">
                 {categories.map(category => {
                   const categoryServices = servicesByCategory[category.id] || [];
                   if (categoryServices.length === 0) return null;
-                  
                   return (
                     <div key={category.id} className="animate-fadeIn">
-                      {/* En-tête de catégorie */}
                       <div className="flex items-center gap-4 mb-8">
                         <div className={`p-4 rounded-2xl bg-gradient-to-r ${category.color} shadow-lg`}>
                           <category.icon className="w-8 h-8 text-white" />
                         </div>
                         <div>
-                          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
-                            {category.label}
-                          </h2>
+                          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">{category.label}</h2>
                           <p className="text-gray-600 dark:text-gray-400 mt-1">
                             {category.description} • {categoryServices.length} services
                           </p>
                         </div>
                       </div>
-
-                      {/* Grille des services de la catégorie */}
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {categoryServices.map((service, index) => (
                           <div
@@ -381,10 +304,7 @@ const ServicesPage = () => {
                             style={{ animationDelay: `${index * 100}ms` }}
                             onClick={() => handleServiceClick(service)}
                           >
-                            <ServiceCard 
-                              service={service} 
-                              onClick={() => handleServiceClick(service)}
-                            />
+                            <ServiceCard service={service} onClick={() => handleServiceClick(service)} />
                           </div>
                         ))}
                       </div>
@@ -393,7 +313,6 @@ const ServicesPage = () => {
                 })}
               </div>
             ) : (
-              // Affichage filtré par une catégorie spécifique
               <>
                 {filteredServices.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -404,10 +323,7 @@ const ServicesPage = () => {
                         style={{ animationDelay: `${index * 100}ms` }}
                         onClick={() => handleServiceClick(service)}
                       >
-                        <ServiceCard 
-                          service={service} 
-                          onClick={() => handleServiceClick(service)}
-                        />
+                        <ServiceCard service={service} onClick={() => handleServiceClick(service)} />
                       </div>
                     ))}
                   </div>
@@ -429,7 +345,7 @@ const ServicesPage = () => {
           </>
         )}
 
-        {/* Badge de confiance */}
+        {/* Badge confiance */}
         <div className="mt-20 text-center">
           <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-200 dark:border-green-800">
             <CreditCard className="w-5 h-5 text-green-500" />
@@ -440,7 +356,7 @@ const ServicesPage = () => {
         </div>
       </main>
 
-      {/* Modal de détail du service */}
+      {/* Modal service */}
       <ServiceModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
@@ -451,38 +367,28 @@ const ServicesPage = () => {
 
       {/* Modal solde insuffisant */}
       {showInsufficientModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-8 text-center transform animate-slideUp">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-8 text-center">
             <button
               onClick={() => setShowInsufficientModal(false)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             >
               <X className="w-6 h-6" />
             </button>
-
             <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-100 dark:bg-red-900/20 mb-6">
               <AlertCircle className="w-10 h-10 text-red-500" />
             </div>
-
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Solde insuffisant
-            </h2>
-            
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Solde insuffisant</h2>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
               Votre solde actuel n'est pas suffisant pour commander ce service.
             </p>
-
             <div className="space-y-3">
               <button
-                onClick={() => {
-                  setShowInsufficientModal(false);
-                  navigate('/client/add-funds');
-                }}
-                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300"
+                onClick={() => { setShowInsufficientModal(false); navigate('/client/add-funds'); }}
+                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-300"
               >
                 Ajouter des fonds
               </button>
-              
               <button
                 onClick={() => setShowInsufficientModal(false)}
                 className="w-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
