@@ -1,14 +1,14 @@
 // back/routes/adminRoutes.js
-const express = require('express');
-const router = express.Router();
+const express      = require('express');
+const router       = express.Router();
 const { admin, protect } = require('../middleware/authMiddleware');
-const User = require('../models/User');
+const User         = require('../models/User');
 const { changeUserRole, getAllEmployees } = require('../controllers/roleController');
-const Service = require('../models/Service');
-const Order = require('../models/Order');
-const Ticket = require('../models/Ticket');
-const Payment = require('../models/Payment');
-const License = require('../models/License');
+const Service      = require('../models/Service');
+const Order        = require('../models/Order');
+const Ticket       = require('../models/Ticket');
+const Payment      = require('../models/Payment');
+const License      = require('../models/License');
 const Notification = require('../models/Notification');
 
 // ─── Utilitaire : créer une notification (non bloquante) ─────────────────────
@@ -39,25 +39,42 @@ router.post('/recharge-balance', protect, admin, async (req, res) => {
       return res.status(400).json({ error: 'Email et montant sont requis' });
     }
 
+    const parsedAmount = Number(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      return res.status(400).json({ error: 'Le montant doit être un nombre positif' });
+    }
+
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ error: "Cet email n'existe pas" });
     }
 
-    user.balance += Number(amount);
+    // ✅ Corriger les rôles hérités de l'ancien système avant la sauvegarde
+    const validRoles = ['client', 'admin', 'utilisateur-employer'];
+    if (!validRoles.includes(user.role)) {
+      user.role = 'client';
+    }
+
+    // ✅ Corriger la balance si invalide
+    const currentBalance = typeof user.balance === 'number' && !isNaN(user.balance)
+      ? user.balance : 0;
+
+    user.balance = currentBalance + parsedAmount;
     await user.save();
 
     // Notification au client (non bloquante)
     await createNotification({
-      userId: user._id,
-      title: '💰 Solde rechargé',
-      message: `Votre solde a été rechargé de ${Number(amount).toFixed(2)} FG. Nouveau solde : ${user.balance.toFixed(2)} FG.`,
-      type: 'success',
+      userId:  user._id,
+      title:   '💰 Solde rechargé',
+      message: `Votre solde a été rechargé de ${new Intl.NumberFormat('fr-FR').format(parsedAmount)} FG. Nouveau solde : ${new Intl.NumberFormat('fr-FR').format(user.balance)} FG.`,
+      type:    'success',
     });
 
+    console.log(`✅ Recharge réussie: ${email} +${parsedAmount} FG → nouveau solde: ${user.balance} FG`);
+
     res.status(200).json({
-      success: true,
-      message: 'Balance rechargée avec succès',
+      success:    true,
+      message:    'Balance rechargée avec succès',
       newBalance: user.balance,
     });
   } catch (error) {
@@ -68,7 +85,7 @@ router.post('/recharge-balance', protect, admin, async (req, res) => {
 
 // ─── Gestion des rôles et employés ───────────────────────────────────────────
 router.post('/change-role', protect, admin, changeUserRole);
-router.get('/employees', protect, admin, getAllEmployees);
+router.get('/employees',    protect, admin, getAllEmployees);
 
 // ─── Services ─────────────────────────────────────────────────────────────────
 router.get('/services', protect, admin, async (req, res) => {
@@ -112,7 +129,7 @@ router.delete('/services/:id', protect, admin, async (req, res) => {
 router.get('/orders', protect, admin, async (req, res) => {
   try {
     const orders = await Order.find({})
-      .populate('userId', 'name email role balance isActive employeeCode createdAt')
+      .populate('userId',    'name email role balance isActive employeeCode createdAt')
       .populate('serviceId', 'name category price')
       .lean();
     res.json({ success: true, count: orders.length, data: orders });
@@ -129,7 +146,7 @@ router.put('/orders/:id/status', protect, admin, async (req, res) => {
       { status: req.body.status },
       { new: true }
     )
-      .populate('userId', 'name email role balance isActive employeeCode createdAt')
+      .populate('userId',    'name email role balance isActive employeeCode createdAt')
       .populate('serviceId', 'name category price')
       .lean();
 
@@ -140,10 +157,10 @@ router.put('/orders/:id/status', protect, admin, async (req, res) => {
     // Notification au client selon le statut
     if (order.userId?._id) {
       const statusMessages = {
-        'En attente': { title: '🕐 Commande en attente',  message: `Votre commande "${order.serviceId?.name || 'Service'}" est en attente de traitement.`, type: 'info' },
-        'En cours':   { title: '⚙️ Commande en cours',    message: `Votre commande "${order.serviceId?.name || 'Service'}" est en cours de traitement.`, type: 'info' },
-        'Terminé':    { title: '✅ Commande terminée',     message: `Votre commande "${order.serviceId?.name || 'Service'}" a été complétée avec succès !`, type: 'success' },
-        'Annulé':     { title: '❌ Commande annulée',      message: `Votre commande "${order.serviceId?.name || 'Service'}" a été annulée.`, type: 'error' },
+        'En attente': { title: '🕐 Commande en attente', message: `Votre commande "${order.serviceId?.name || 'Service'}" est en attente de traitement.`, type: 'info' },
+        'En cours':   { title: '⚙️ Commande en cours',   message: `Votre commande "${order.serviceId?.name || 'Service'}" est en cours de traitement.`,  type: 'info' },
+        'Terminé':    { title: '✅ Commande terminée',    message: `Votre commande "${order.serviceId?.name || 'Service'}" a été complétée avec succès !`, type: 'success' },
+        'Annulé':     { title: '❌ Commande annulée',     message: `Votre commande "${order.serviceId?.name || 'Service'}" a été annulée.`,                type: 'error' },
       };
       const notif = statusMessages[req.body.status];
       if (notif) await createNotification({ userId: order.userId._id, ...notif });
@@ -226,8 +243,6 @@ router.get('/dashboard-stats', protect, admin, async (req, res) => {
 });
 
 module.exports = router;
-
-
 // const express = require('express');
 // const router = express.Router();
 // const { admin, protect } = require('../middleware/authMiddleware');
