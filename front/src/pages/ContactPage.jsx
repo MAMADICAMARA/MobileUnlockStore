@@ -58,15 +58,15 @@ const ContactPage = () => {
             <div className="space-y-4">
               <div className="flex items-start">
                 <span className="mt-1 mr-3 text-blue-600">📍</span>
-                <p className="text-gray-700">Mamou</p>
+                <p className="text-gray-700">GUINEE</p>
               </div>
               <div className="flex items-start">
                 <span className="mt-1 mr-3 text-blue-600">📧</span>
-                <p className="text-gray-700">Mamadicamara566@gmail.com</p>
+                <p className="text-gray-700">CamusUlockStore566@gmail.com</p>
               </div>
               <div className="flex items-start">
                 <span className="mt-1 mr-3 text-blue-600">📞</span>
-                <p className="text-gray-700">+224 621 656 424</p>
+                <p className="text-gray-700">621-60-53-43</p>
               </div>
             </div>
             <p className="text-gray-600">
