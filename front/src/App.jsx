@@ -1,3 +1,5 @@
+
+import { useState, useEffect } from 'react'; // 👈 Ajouté pour gérer l'état de connexion
 import { Route, Routes, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -16,10 +18,12 @@ import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import AdminRechargeUserPage from "./pages/admin/AdminRechargeUserPage";
 import DashboardPage from "./pages/client/DashboardPage";
 import PublicLayout from "./components/layout/PublicLayout";
-
+import AdminRefundPage from './pages/admin/AdminRefundPage'; // ou le bon chemin vers ton composant
 // Importation des pages de l'espace employé
 import EmployeeWorksPage from './pages/employee/EmployeeWorksPage';
 import EmployeeDashboardPage from './pages/employee/EmployeeDashboardPage';
+import MaintenancePage from './pages/MaintenancePage';
+import { SystemProvider } from './context/SystemContext';
 
 // Import des pages du client
 import OrdersPage from './pages/client/OrdersPage';
@@ -30,7 +34,6 @@ import ProfilePage from './pages/client/ProfilePage';
 import TicketsPage from './pages/client/TicketsPage';
 import OrderHistoryPage from './pages/client/OrderHistoryPage'; // Nouvelle page d'historique
 import OrderDetailPage from './pages/client/OrderDetailPage'; // Page de détail de commande
-
 // Importation des pages de l'espace admin
 import AdminServicesPage from './pages/admin/AdminServicesPage';
 import AdminOrdersPage from './pages/admin/AdminOrdersPage';
@@ -47,6 +50,7 @@ import AdminEmployeesPage from './pages/admin/AdminEmployeesPage';
 import AdminOrderDetailsPage from './pages/admin/AdminOrderDetailsPage'; // Page de détail d'une commande admin
 import { NotificationProvider } from './context/NotificationContext';
 import { useAuth } from "./context/AuthContext";
+import OfflineBlocker from './components/OfflineBlocker'; // 👈 Import de notre bloqueur plein écran
 
 function ProtectedRoute({ children, role }) {
   const { user, isAuthenticated, loading } = useAuth();
@@ -69,8 +73,33 @@ function ProtectedRoute({ children, role }) {
 }
 
 function App() {
+  // ── GESTION DE LA CONNEXION INTERNET ───────────────────────────────────
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Si pas internet : rideau noir. On empêche le rendu de tout le reste du front-end.
+  if (!isOnline) {
+    return <OfflineBlocker />;
+  }
+  // ───────────────────────────────────────────────────────────────────────
+
   return (
     <NotificationProvider>
+      <SystemProvider>
+        <ToastContainer position="top-right" autoClose={3000} />
+        
       <ToastContainer position="top-right" autoClose={3000} />
       <Routes>
         {/* Routes publiques */}
@@ -82,6 +111,7 @@ function App() {
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/maintenance" element={<MaintenancePage />} />
           <Route path="/forgot-password" element={<ResetPasswordPage />} />
           <Route path="/verify-code" element={<CodeVerificationPage />} />
         </Route>
@@ -147,10 +177,169 @@ function App() {
           <Route path="recharge" element={<AdminRechargeUserPage />} />
           <Route path="change-role" element={<AdminChangeRolePage />} />
           <Route path="employees" element={<AdminEmployeesPage />} />
+          <Route path="/admin/refund" element={<AdminRefundPage />} />
         </Route>
       </Routes>
+      </SystemProvider>
     </NotificationProvider>
   );
 }
 
 export default App;
+
+// import { Route, Routes, Navigate } from 'react-router-dom';
+// import { ToastContainer } from 'react-toastify';
+// import 'react-toastify/dist/ReactToastify.css';
+// import HomePage from './pages/HomePage';
+// import ServicesPage from './pages/ServicesPage';
+// import ServiceCategoryPage from './pages/ServiceCategoryPage'; // Page pour une catégorie spécifique
+// import FAQPage from './pages/FAQPage';
+// import ContactPage from './pages/ContactPage';
+// import LoginPage from './pages/auth/LoginPage';
+// import RegisterPage from './pages/auth/RegisterPage';
+// import ResetPasswordPage from './pages/auth/ResetPasswordPage';
+// import CodeVerificationPage from './pages/auth/CodeVerificationPage';
+// import AdminLayout from "./components/layout/AdminLayout";
+// import ClientLayout from "./components/layout/ClientLayout";
+// import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
+// import AdminRechargeUserPage from "./pages/admin/AdminRechargeUserPage";
+// import DashboardPage from "./pages/client/DashboardPage";
+// import PublicLayout from "./components/layout/PublicLayout";
+
+// // Importation des pages de l'espace employé
+// import EmployeeWorksPage from './pages/employee/EmployeeWorksPage';
+// import EmployeeDashboardPage from './pages/employee/EmployeeDashboardPage';
+
+// // Import des pages du client
+// import OrdersPage from './pages/client/OrdersPage';
+// import LicensesPage from './pages/client/LicensesPage';
+// import SupportPage from './pages/client/SupportPage';
+// import AddFundsPage from './pages/client/AddFundsPage';
+// import ProfilePage from './pages/client/ProfilePage';
+// import TicketsPage from './pages/client/TicketsPage';
+// import OrderHistoryPage from './pages/client/OrderHistoryPage'; // Nouvelle page d'historique
+// import OrderDetailPage from './pages/client/OrderDetailPage'; // Page de détail de commande
+
+// // Importation des pages de l'espace admin
+// import AdminServicesPage from './pages/admin/AdminServicesPage';
+// import AdminOrdersPage from './pages/admin/AdminOrdersPage';
+// import AdminUsersPage from './pages/admin/AdminUsersPage';
+// import AdminLicensesPage from './pages/admin/AdminLicensesPage';
+// import AdminRemotePage from './pages/admin/AdminRemotePage';
+// import AdminPaymentsPage from './pages/admin/AdminPaymentsPage';
+// import AdminContentPage from './pages/admin/AdminContentPage';
+// import AdminSupportPage from './pages/admin/AdminSupportPage';
+// import AdminAdminsPage from './pages/admin/AdminAdminsPage';
+// import AdminChangeRolePage from './pages/admin/AdminChangeRolePage';
+// import AdminSearchOrderPage from './pages/admin/AdminSearchOrderPage';
+// import AdminEmployeesPage from './pages/admin/AdminEmployeesPage';
+// import AdminOrderDetailsPage from './pages/admin/AdminOrderDetailsPage'; // Page de détail d'une commande admin
+// import { NotificationProvider } from './context/NotificationContext';
+// import { useAuth } from "./context/AuthContext";
+
+// function ProtectedRoute({ children, role }) {
+//   const { user, isAuthenticated, loading } = useAuth();
+//   if (loading) return <div>Chargement...</div>;
+//   if (!isAuthenticated) return <Navigate to="/login" />;
+  
+//   // Redirection basée sur le rôle
+//   if (role && user.role !== role) {
+//     if (user.role === 'utilisateur-employer') {
+//       return <Navigate to="/employee/dashboard" replace />;
+//     } else if (user.role === 'client') {
+//       return <Navigate to="/client/dashboard" replace />;
+//     } else if (user.role === 'admin') {
+//       return <Navigate to="/admin/dashboard" replace />;
+//     }
+//     return <Navigate to="/" replace />;
+//   }
+  
+//   return children;
+// }
+
+// function App() {
+//   return (
+//     <NotificationProvider>
+//       <ToastContainer position="top-right" autoClose={3000} />
+//       <Routes>
+//         {/* Routes publiques */}
+//         <Route element={<PublicLayout />}>
+//           <Route path="/" element={<HomePage />} />
+//           <Route path="/services" element={<ServicesPage />} />
+//           <Route path="/services/:category" element={<ServiceCategoryPage />} /> {/* Page de catégorie */}
+//           <Route path="/faq" element={<FAQPage />} />
+//           <Route path="/contact" element={<ContactPage />} />
+//           <Route path="/login" element={<LoginPage />} />
+//           <Route path="/register" element={<RegisterPage />} />
+//           <Route path="/forgot-password" element={<ResetPasswordPage />} />
+//           <Route path="/verify-code" element={<CodeVerificationPage />} />
+//         </Route>
+
+//         {/* Routes protégées pour l'espace employé */}
+//         <Route path="/employee" element={
+//           <ProtectedRoute role="utilisateur-employer">
+//             <ClientLayout />
+//           </ProtectedRoute>
+//         }>
+//           <Route index element={<EmployeeDashboardPage />} />
+//           <Route path="dashboard" element={<EmployeeDashboardPage />} />
+//           <Route path="works" element={<EmployeeWorksPage />} />
+//           <Route path="orders" element={<OrdersPage />} />
+//           <Route path="orders-history" element={<OrderHistoryPage />} /> {/* Historique emp des commandes */}
+//           <Route path="orders/:orderId" element={<OrderDetailPage />} /> {/* Détail d'une commande employé */}
+//           <Route path="licenses" element={<LicensesPage />} />
+//           <Route path="tickets" element={<TicketsPage />} />
+//           <Route path="profile" element={<ProfilePage />} />
+//           <Route path="support" element={<SupportPage />} />
+//           <Route path="add-funds" element={<AddFundsPage />} />
+//         </Route>
+
+//         {/* Routes protégées pour l'espace client */}
+//         <Route path="/client" element={
+//           <ProtectedRoute role="client">
+//             <ClientLayout />
+//           </ProtectedRoute>
+//         }>
+//           <Route index element={<DashboardPage />} />
+//           <Route path="dashboard" element={<DashboardPage />} />
+//           <Route path="orders" element={<OrderHistoryPage />} /> {/* Historique des commandes (nouveau) */}
+//           <Route path="orders/:orderId" element={<OrderDetailPage />} /> {/* Détail d'une commande */}
+//           <Route path="orders-history" element={<OrderHistoryPage />} /> {/* Alias pour compatibilité */}
+//           <Route path="services/:category" element={<ServiceCategoryPage />} />
+//           <Route path="licenses" element={<LicensesPage />} />
+//           <Route path="support" element={<SupportPage />} />
+//           <Route path="add-funds" element={<AddFundsPage />} />
+//           <Route path="profile" element={<ProfilePage />} />
+//           <Route path="tickets" element={<TicketsPage />} />
+//         </Route>
+
+//         {/* Routes protégées pour l'espace admin */}
+//         <Route path="/admin" element={
+//           <ProtectedRoute role="admin">
+//             <AdminLayout />
+//           </ProtectedRoute>
+//         }>
+//           <Route index element={<AdminDashboardPage />} />
+//           <Route path="dashboard" element={<AdminDashboardPage />} />
+//           <Route path="services" element={<AdminServicesPage />} />
+//           <Route path="services/:category" element={<ServiceCategoryPage />} />
+//           <Route path="orders" element={<AdminOrdersPage />} />
+//           <Route path="orders/:orderId" element={<AdminOrderDetailsPage />} />
+//           <Route path="search-order" element={<AdminSearchOrderPage />} />
+//           <Route path="users" element={<AdminUsersPage />} />
+//           <Route path="licenses" element={<AdminLicensesPage />} />
+//           <Route path="remote" element={<AdminRemotePage />} />
+//           <Route path="payments" element={<AdminPaymentsPage />} />
+//           <Route path="content" element={<AdminContentPage />} />
+//           <Route path="support" element={<AdminSupportPage />} />
+//           <Route path="admins" element={<AdminAdminsPage />} />
+//           <Route path="recharge" element={<AdminRechargeUserPage />} />
+//           <Route path="change-role" element={<AdminChangeRolePage />} />
+//           <Route path="employees" element={<AdminEmployeesPage />} />
+//         </Route>
+//       </Routes>
+//     </NotificationProvider>
+//   );
+// }
+
+// export default App;

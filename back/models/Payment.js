@@ -13,8 +13,8 @@ const PaymentSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Réussi', 'Échoué', 'En attente'],
-    default: 'En attente',
+    enum: ['Réussi', 'Échoué', 'en cours'],
+    default: 'en cours',
   },
   type: {
     type: String,

@@ -1,0 +1,432 @@
+================================================================================
+   RAPPORT D'AUDIT — MobileUnlockStore
+   Date : 2026-07-01
+================================================================================
+
+RESUME EXECUTIF
+---------------
+  Problemes Critiques  :  4
+  Problemes Majeurs    : 19
+  Problemes Mineurs    : 12
+  TOTAL                : 35
+
+TOP 4 PRIORITES ABSOLUES :
+  [1] BUG-07  — Annulation de commande cassee (route DELETE inexistante)
+  [2] BUG-01  — Race condition : service obtenu sans paiement possible
+  [3] COH-04  — AdminUsersPage entierement commentee (page non fonctionnelle)
+  [4] SEC-02  — Aucun rate limiting sur le login (vulnerable au brute-force)
+
+================================================================================
+CATEGORIE 1 : SECURITE
+================================================================================
+
+SEC-01 — Token JWT contenant des donnees sensibles dans le payload
+  Fichier  : back/controllers/authController.js, ligne 7-9
+  Probleme : Le JWT encode balance, email, name, role directement. Ces valeurs
+             sont lisibles sans cle secrete (base64). Le solde dans le token
+             devient obsolete des qu'une recharge est faite.
+  Impact   : MAJEUR
+
+--------------------------------------------------------------------------------
+
+SEC-02 — Absence totale de rate limiting sur les routes d'authentification
+  Fichier  : back/app.js, back/routes/ (toutes)
+  Probleme : Aucun middleware express-rate-limit sur /api/auth/login ou
+             /api/auth/register. Un attaquant peut tenter des milliers de
+             connexions par brute-force sans etre bloque.
+  Impact   : CRITIQUE
+
+--------------------------------------------------------------------------------
+
+SEC-03 — getProfile renvoie l'objet user complet sans filtrage
+  Fichier  : back/controllers/authController.js, lignes 251-260
+  Probleme : User.findById() renvoie tous les champs (isMaintenanceAllowed,
+             isActive, otpCode...) sans aucune exclusion.
+  Impact   : MINEUR
+
+--------------------------------------------------------------------------------
+
+SEC-04 — console.log avec donnees sensibles en production
+  Fichiers : back/routes/orderRoutes.js ligne 161
+             back/routes/adminRoutes.js lignes 109, 197, 333
+  Probleme : Les logs affichent emails, montants financiers et infos de compte
+             (ex: "albercamus621@gmail.com -20000 FG"). En production ces logs
+             sont centralises et accessibles par plusieurs personnes.
+  Impact   : MAJEUR
+
+--------------------------------------------------------------------------------
+
+SEC-05 — Absence de validation des entrees MongoDB (injection via req.body)
+  Fichier  : back/routes/adminRoutes.js lignes 131-137, 140-148
+  Probleme : Service.create(req.body) et findByIdAndUpdate(id, req.body)
+             utilisent directement req.body sans validation ni sanitisation.
+             Un token admin vole peut injecter des champs arbitraires en base.
+  Impact   : MAJEUR
+
+--------------------------------------------------------------------------------
+
+SEC-06 — Route /api/dashboard sans protection et sans slash initial
+  Fichier  : back/app.js, ligne 86
+  Probleme : Declaree app.get('api/dashboard', ...) sans le slash initial —
+             ne matche jamais. Si corrigee elle exposerait les comptages
+             d'utilisateurs, commandes et revenus sans authentification.
+  Impact   : MAJEUR (si un jour activee)
+
+--------------------------------------------------------------------------------
+
+SEC-07 — isMaintenanceAllowed dans le JWT — bypass possible cote frontend
+  Fichier  : back/controllers/authController.js ligne 8
+             back/middleware/authMiddleware.js ligne 48
+  Probleme : Le middleware serveur lit depuis la BD (correct), mais si le
+             frontend lit decoded.isMaintenanceAllowed depuis le token, un
+             utilisateur peut l'inspecter et comprendre la logique d'acces.
+  Impact   : MINEUR
+
+--------------------------------------------------------------------------------
+
+SEC-08 — Aucune protection CSRF
+  Fichier  : back/app.js
+  Probleme : Pas de protection CSRF mentionnee. Risque faible si Bearer token
+             uniquement, mais a surveiller si des cookies sont introduits.
+  Impact   : MINEUR
+
+================================================================================
+CATEGORIE 2 : LOGIQUE METIER
+================================================================================
+
+BUG-01 — Race condition critique : commande creee sans deduction de solde
+  Fichier  : back/routes/orderRoutes.js, lignes 143-159
+  Probleme : Order.create() s'execute AVANT user.save(). Si user.save() echoue
+             (timeout, erreur reseau), la commande existe en BD mais le solde
+             n'a pas ete debite. L'utilisateur obtient le service gratuitement.
+  Impact   : CRITIQUE
+
+--------------------------------------------------------------------------------
+
+BUG-02 — Double remboursement possible (annulation + remboursement N2)
+  Fichier  : back/routes/adminRoutes.js, lignes 186-206 et 299-344
+  Probleme : Un admin peut annuler une commande terminee (remboursement N1),
+             puis un autre admin peut faire un remboursement N2 si le statut
+             n'est pas encore mis a jour en base (latence). Aucun verrou
+             atomique ne previent le double credit.
+  Impact   : CRITIQUE
+
+--------------------------------------------------------------------------------
+
+BUG-03 — fixUserRole corrige des roles invalides sans alerter
+  Fichiers : back/routes/orderRoutes.js ligne 20-23
+             back/routes/adminRoutes.js lignes 98-99, 192-194, 324-325
+  Probleme : La fonction corrige silencieusement les roles invalides avant
+             chaque save(). Des donnees corrompues en base ne declenchent
+             aucune alerte ni audit trail.
+  Impact   : MAJEUR
+
+--------------------------------------------------------------------------------
+
+BUG-04 — Aucune verification que le service est actif avant commande
+  Fichier  : back/routes/orderRoutes.js, lignes 105-108
+  Probleme : Service.findById() ne verifie pas service.active. Un utilisateur
+             peut passer une commande sur un service desactive et son solde
+             sera debite.
+  Impact   : MAJEUR
+
+--------------------------------------------------------------------------------
+
+BUG-05 — findByIdAndUpdate contourne le middleware pre-save d'Order
+  Fichier  : back/routes/adminRoutes.js, lignes 180-183
+  Probleme : La mise a jour du statut utilise findByIdAndUpdate. Les middlewares
+             pre('save') qui renseignent processedAt, completedAt, refundedAt
+             ne sont JAMAIS declenches. Ces timestamps restent toujours vides.
+  Impact   : MAJEUR
+
+--------------------------------------------------------------------------------
+
+BUG-06 — Verification de remboursement N2 mal ordonnee
+  Fichier  : back/routes/adminRoutes.js, ligne 299-312
+  Probleme : La condition verifie d'abord ['Terminé', 'completed'] puis
+             order.status === 'Remboursé'. Le second check est inatteignable
+             car une commande 'Remboursé' ne passe pas le premier filtre.
+             La protection anti-double-remboursement N2 est inefficace.
+  Impact   : MINEUR
+
+--------------------------------------------------------------------------------
+
+BUG-07 — cancelOrder appelle DELETE /api/orders/:id qui n'existe pas
+  Fichier  : front/src/services/orderService.js ligne 66
+             back/routes/orderRoutes.js (aucune route DELETE)
+  Probleme : La fonction d'annulation de commande par le client appelle
+             api.delete('/api/orders/:id') mais cette route n'existe nulle
+             part dans le backend. Retourne systematiquement 404.
+             La fonctionnalite d'annulation client est entierement cassee.
+  Impact   : CRITIQUE
+
+--------------------------------------------------------------------------------
+
+BUG-08 — isOrderCancellable ne couvre pas tous les statuts
+  Fichier  : front/src/services/orderService.js, ligne 253
+  Probleme : Retourne true uniquement pour 'pending' et 'en cours'. Les
+             autres statuts ne sont pas couverts. Corolaire du BUG-07.
+  Impact   : MINEUR
+
+================================================================================
+CATEGORIE 3 : COHERENCE DES DONNEES
+================================================================================
+
+COH-01 — Dualite des statuts anglais/francais non resolue
+  Fichiers : back/models/Order.js lignes 35-42
+             back/routes/adminRoutes.js ligne 265-268
+             front/src/services/orderService.js lignes 192-244
+  Probleme : Le modele accepte les deux formes ('en cours'/'pending',
+             'Terminé'/'completed', etc.). La creation de commande utilise
+             'pending' (anglais) mais les filtres admin utilisent 'Terminé'.
+             Les stats dashboard ne comptent que 'Terminé' et ignorent
+             'completed'. Incoherences dans les KPIs, filtres et remboursements.
+  Impact   : MAJEUR
+
+--------------------------------------------------------------------------------
+
+COH-02 — userSubmittedDataMetadata jamais renseigne
+  Fichier  : back/routes/orderRoutes.js, lignes 143-154
+  Probleme : La commande est creee avec userSubmittedData mais
+             userSubmittedDataMetadata (necessaire pour afficher les labels
+             dans l'interface admin) n'est jamais fourni. Les champs soumis
+             par l'utilisateur n'auront pas de labels lisibles cote admin.
+  Impact   : MAJEUR
+
+--------------------------------------------------------------------------------
+
+COH-03 — Solde dans le JWT desynchronise apres chaque operation financiere
+  Fichier  : back/controllers/authController.js ligne 9
+             front/src/context/AuthContext.jsx lignes 101-113
+  Probleme : Le token contient le solde au moment du login (valable 30 jours).
+             Apres une commande ou recharge, le token n'est pas regenere.
+             Si le fetch /api/auth/profile echoue, l'affichage reste sur la
+             valeur obsolete du JWT.
+  Impact   : MAJEUR
+
+--------------------------------------------------------------------------------
+
+COH-04 — AdminUsersPage.jsx est entierement commentee
+  Fichier  : front/src/pages/admin/AdminUsersPage.jsx (tout le fichier)
+  Probleme : Le composant entier est dans un bloc de commentaires. La route
+             /admin/users dans App.jsx pointe vers ce composant vide. Les
+             admins ne peuvent pas gerer les utilisateurs via cette page.
+  Impact   : CRITIQUE
+
+--------------------------------------------------------------------------------
+
+COH-05 — Route GET /api/admin/services/:id inexistante
+  Fichier  : front/src/services/adminService.js ligne 13
+             back/routes/adminRoutes.js (route manquante)
+  Probleme : adminService.getServiceById() appelle GET /api/admin/services/:id
+             mais seul GET /api/admin/services (liste complete) existe.
+             Tous les appels getServiceById retourneront 404.
+  Impact   : MAJEUR
+
+--------------------------------------------------------------------------------
+
+COH-06 — Routes admin fantomes dans adminService sans implementation backend
+  Fichier  : front/src/services/adminService.js lignes 27-31
+  Probleme : getOrderByCode, getOrderByTransaction, getOrdersByEmail,
+             getOrderByIMEI, getOrderStats, exportOrders appellent des
+             endpoints inexistants. Ces appels produiront systematiquement 404.
+  Impact   : MAJEUR
+
+--------------------------------------------------------------------------------
+
+COH-07 — Token JWT expire de 30 jours sans refresh token
+  Fichier  : back/controllers/authController.js ligne 9
+  Probleme : Pas de mecanisme de refresh token. Token vole = valide 30 jours
+             sans possibilite de revocation. Aucune blacklist JWT.
+  Impact   : MAJEUR
+
+--------------------------------------------------------------------------------
+
+COH-08 — updateOrderStatus dans orderService pointe vers mauvaises routes
+  Fichier  : front/src/services/orderService.js, lignes 117-156
+  Probleme : getAdminOrderById appelle GET /api/admin/orders/:id mais la route
+             correcte est GET /api/orders/admin/:id.
+             updateOrderStatus appelle PUT /api/admin/orders/:id mais la route
+             correcte est PUT /api/admin/orders/:id (via adminRoutes, non via
+             orderService). Double incoherence d'URL.
+  Impact   : MAJEUR
+
+================================================================================
+CATEGORIE 4 : FRONTEND / UX
+================================================================================
+
+UX-01 — Gestion conflictuelle du scroll dans ServiceModal
+  Fichier  : front/src/components/ServiceModal.jsx, lignes 73-81
+  Probleme : Le composant utilise useBodyScrollLock(isOpen) ET gere
+             manuellement document.body.style.overflow dans un useEffect.
+             Double gestion du meme element = conflits possibles a la fermeture.
+  Impact   : MINEUR
+
+--------------------------------------------------------------------------------
+
+UX-02 — Fermeture automatique du modal en 2500ms trop rapide
+  Fichier  : front/src/components/ServiceModal.jsx, ligne 265
+  Probleme : setTimeout(onClose, 2500) ferme le modal 2.5s apres confirmation.
+             Si la connexion est lente, l'utilisateur n'a pas le temps de
+             noter l'ID de commande ou lire le message de succes.
+  Impact   : MINEUR
+
+--------------------------------------------------------------------------------
+
+UX-03 — Dashboard affiche "2FA actif" alors que le 2FA est desactive
+  Fichier  : front/src/pages/client/DashboardPage.jsx, lignes 562-569
+  Probleme : Le bloc securite annonce "protege par authentification a deux
+             facteurs" avec un bouton "Verifier la securite". Le systeme OTP
+             est entierement desactive (commente). Information mensongere.
+  Impact   : MAJEUR
+
+--------------------------------------------------------------------------------
+
+UX-04 — Boutons du Dashboard pointent vers des routes inexistantes
+  Fichier  : front/src/pages/client/DashboardPage.jsx lignes 332, 566, 589
+             front/src/App.jsx
+  Probleme : Boutons "Recharger", "Historique", "Securite", "Activite"
+             navigent vers /client/add-funds, /client/balance-history,
+             /client/security, /client/activity. Certaines de ces routes
+             ne sont pas definies dans App.jsx = pages vides ou 404.
+  Impact   : MAJEUR
+
+--------------------------------------------------------------------------------
+
+UX-05 — Gestion des erreurs cassee dans AdminRefundPage
+  Fichier  : front/src/pages/admin/AdminRefundPage.jsx, ligne 38
+  Probleme : err.response?.data?.message est utilise mais l'intercepteur
+             api.js lance directement l'objet data (pas un objet axios).
+             err.response est donc undefined. Le message d'erreur reel ne
+             s'affiche jamais — l'admin voit toujours "Erreur generique".
+  Impact   : MAJEUR
+
+--------------------------------------------------------------------------------
+
+UX-06 — console.log de debug laisses en production dans le frontend
+  Fichiers : front/src/context/AuthContext.jsx lignes 66, 80, 178
+             front/src/services/api.js lignes 12-13
+             front/src/services/orderService.js ligne 16
+  Probleme : Logs exposant email, role, solde et donnees de commande dans la
+             console navigateur. Lisibles par des extensions malveillantes.
+  Impact   : MAJEUR
+
+--------------------------------------------------------------------------------
+
+UX-07 — Aucune pagination sur les listes admin
+  Fichiers : back/routes/adminRoutes.js lignes 161-170
+             front/src/pages/admin/AdminOrdersPage.jsx
+  Probleme : Order.find({}) sans limite recupere TOUTES les commandes. Sur
+             des milliers de commandes : timeout serveur, surcharge memoire,
+             temps de chargement infini. Le frontend envoie page/limit mais
+             le backend les ignore.
+  Impact   : MAJEUR
+
+================================================================================
+CATEGORIE 5 : QUALITE DU CODE
+================================================================================
+
+QUA-01 — Double declaration de route GET / dans app.js
+  Fichier  : back/app.js, lignes 40-67 et 70-81
+  Probleme : app.get('/', ...) declare deux fois. Express n'utilise que la
+             premiere. La seconde (JSON) n'est jamais atteinte.
+  Impact   : MINEUR
+
+--------------------------------------------------------------------------------
+
+QUA-02 — Route GET api/dashboard sans slash initial
+  Fichier  : back/app.js, ligne 86
+  Probleme : app.get('api/dashboard') au lieu de app.get('/api/dashboard').
+             Cette route ne matche jamais. Code mort.
+  Impact   : MINEUR
+
+--------------------------------------------------------------------------------
+
+QUA-03 — Import axios non utilise dans ServiceModal
+  Fichier  : front/src/components/ServiceModal.jsx, ligne 29
+  Probleme : import axios from 'axios' present mais axios n'est utilise nulle
+             part dans la version active du composant. Import mort.
+  Impact   : MINEUR
+
+--------------------------------------------------------------------------------
+
+QUA-04 — Import useMemo non utilise dans ServiceModal
+  Fichier  : front/src/components/ServiceModal.jsx, ligne 3
+  Probleme : useMemo importe mais jamais utilise dans le code actif.
+  Impact   : MINEUR
+
+--------------------------------------------------------------------------------
+
+QUA-05 — selectedFile, uploadError, uploadProgress declares mais jamais utilises
+  Fichier  : front/src/components/ServiceModal.jsx, lignes 61-63
+  Probleme : Trois etats initialises mais aucun chemin de code ne les utilise.
+             Fonctionnalite d'upload supprimee, etats oublies.
+  Impact   : MINEUR
+
+--------------------------------------------------------------------------------
+
+QUA-06 — generateOtp() definie mais jamais appelee
+  Fichier  : back/controllers/authController.js, lignes 12-14
+  Probleme : Fonction morte. Le systeme OTP est desactive (commente) mais
+             la fonction generateOtp reste dans le code actif.
+  Impact   : MINEUR
+
+--------------------------------------------------------------------------------
+
+QUA-07 — Tout le projet contient plus de code commente que de code actif
+  Fichiers : Tous les fichiers modifies du projet
+  Probleme : ServiceModal.jsx = 3299 lignes dont ~680 actives.
+             adminRoutes.js = 572 lignes dont ~347 actives.
+             Order.js, Service.js, authController.js, authMiddleware.js — idem.
+             Cette pratique doit etre remplacee par git (git log/git diff
+             conserve l'historique). La navigation dans le code est penible.
+  Impact   : MAJEUR (dette technique)
+
+================================================================================
+TABLEAU RECAPITULATIF
+================================================================================
+
+  ID       | Categorie     | Impact    | Description courte
+  ---------|---------------|-----------|------------------------------------------
+  SEC-01   | Securite      | Majeur    | Solde dans JWT lisible et obsolete
+  SEC-02   | Securite      | CRITIQUE  | Pas de rate limiting sur le login
+  SEC-03   | Securite      | Mineur    | getProfile renvoie trop de donnees
+  SEC-04   | Securite      | Majeur    | Logs exposent donnees financieres
+  SEC-05   | Securite      | Majeur    | req.body injecte directement en MongoDB
+  SEC-06   | Securite      | Majeur    | Route dashboard non protegee (si activee)
+  SEC-07   | Securite      | Mineur    | isMaintenanceAllowed dans JWT
+  SEC-08   | Securite      | Mineur    | Pas de protection CSRF
+  BUG-01   | Logique       | CRITIQUE  | Race condition debit solde/commande
+  BUG-02   | Logique       | CRITIQUE  | Double remboursement possible
+  BUG-03   | Logique       | Majeur    | fixUserRole silencieux sans alerte
+  BUG-04   | Logique       | Majeur    | Commande possible sur service inactif
+  BUG-05   | Logique       | Majeur    | findByIdAndUpdate bypass pre-save
+  BUG-06   | Logique       | Mineur    | Verification remboursement N2 mal ordonnee
+  BUG-07   | Logique       | CRITIQUE  | cancelOrder → route DELETE inexistante
+  BUG-08   | Logique       | Mineur    | isOrderCancellable incomplet
+  COH-01   | Coherence     | Majeur    | Dualite statuts anglais/francais
+  COH-02   | Coherence     | Majeur    | userSubmittedDataMetadata jamais renseigne
+  COH-03   | Coherence     | Majeur    | Solde JWT desynchronise apres transaction
+  COH-04   | Coherence     | CRITIQUE  | AdminUsersPage entierement commentee
+  COH-05   | Coherence     | Majeur    | GET /api/admin/services/:id inexistant
+  COH-06   | Coherence     | Majeur    | Routes fantomes dans adminService
+  COH-07   | Coherence     | Majeur    | JWT 30j sans refresh ni revocation
+  COH-08   | Coherence     | Majeur    | updateOrderStatus URL incorrectes
+  UX-01    | Frontend/UX   | Mineur    | Double gestion scroll dans ServiceModal
+  UX-02    | Frontend/UX   | Mineur    | Fermeture modale trop rapide (2500ms)
+  UX-03    | Frontend/UX   | Majeur    | Dashboard annonce 2FA inexistant
+  UX-04    | Frontend/UX   | Majeur    | Boutons Dashboard → routes inexistantes
+  UX-05    | Frontend/UX   | Majeur    | Erreurs mal gerees dans AdminRefundPage
+  UX-06    | Frontend/UX   | Majeur    | console.log sensibles en production
+  UX-07    | Frontend/UX   | Majeur    | Pas de pagination sur les listes admin
+  QUA-01   | Qualite       | Mineur    | Double route GET / dans app.js
+  QUA-02   | Qualite       | Mineur    | Route api/dashboard sans slash initial
+  QUA-03   | Qualite       | Mineur    | Import axios inutile dans ServiceModal
+  QUA-04   | Qualite       | Mineur    | Import useMemo inutile dans ServiceModal
+  QUA-05   | Qualite       | Mineur    | 3 etats inutiles dans ServiceModal
+  QUA-06   | Qualite       | Mineur    | generateOtp() morte dans authController
+  QUA-07   | Qualite       | Majeur    | Code commente massif dans tout le projet
+
+================================================================================
+FIN DU RAPPORT
+================================================================================

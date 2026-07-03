@@ -1,6 +1,33 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Bloque le scroll de la page derrière un modal ouvert */
+body.modal-open {
+  overflow: hidden;
+  /* iOS Safari — empêche aussi le rebond du scroll */
+  position: fixed;
+  width: 100%;
+}
+
+/* Empêche le zoom iOS sur les inputs (font-size < 16px déclenche le zoom) */
+input,
+textarea,
+select {
+  font-size: 16px !important;
+}
+
+/* Désactive les interactions tactiles non souhaitées */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Texte non sélectionnable sur les boutons pour éviter les sélections accidentelles */
+button {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;

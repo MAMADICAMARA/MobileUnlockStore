@@ -4,7 +4,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Package, Calendar, Euro, CheckCircle,
   AlertCircle, Save, Loader, Copy, User, Mail, CreditCard,
-  Shield, Tag, Clock, Hash, FileText, Plus, Trash2
+  Shield, Tag, Clock, Hash, FileText, Plus, Trash2,
+  ArrowLeftRight // 🛠️ Ajout de l'icône pour le remboursement
 } from 'lucide-react';
 import adminService from '../../services/adminService';
 
@@ -17,16 +18,10 @@ const formatDate = (d) => d ? new Intl.DateTimeFormat('fr-FR', {
 const formatCurrency = (v) =>
   `${new Intl.NumberFormat('fr-FR').format(v || 0)} Fg`;
 
-// ✅ Statuts du modèle Order (pending/processing/completed)
 const STATUS_OPTIONS = [
-  { value: 'pending',    label: '⏳ En attente',  badge: 'bg-blue-100 text-blue-700' },
-  { value: 'processing', label: '🔄 En cours',    badge: 'bg-yellow-100 text-yellow-700' },
-  { value: 'completed',  label: '✅ Terminé',      badge: 'bg-green-100 text-green-700' },
-  // Anciens statuts français (compatibilité)
-  { value: 'En attente', label: '⏳ En attente',  badge: 'bg-blue-100 text-blue-700' },
-  { value: 'En cours',   label: '🔄 En cours',    badge: 'bg-yellow-100 text-yellow-700' },
-  { value: 'Terminé',    label: '✅ Terminé',      badge: 'bg-green-100 text-green-700' },
-  { value: 'Annulé',     label: '❌ Annulé',       badge: 'bg-red-100 text-red-700' },
+  { value: 'En cours', label: '🔄 En cours', badge: 'bg-amber-100 text-amber-700' },
+  { value: 'Terminé',  label: '✅ Terminé',  badge: 'bg-green-100 text-green-700' },
+  { value: 'Annulé',   label: '❌ Annulé',   badge: 'bg-red-100 text-red-700' },
 ];
 
 const getBadge = (status) => {
@@ -60,7 +55,7 @@ const AdminOrderDetailsPage = () => {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [newStatus, setNewStatus] = useState('pending');
+  const [newStatus, setNewStatus] = useState('En cours');
   const [deliveryData, setDeliveryData] = useState({});
   const [adminNotes, setAdminNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -156,11 +151,32 @@ const AdminOrderDetailsPage = () => {
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6">
 
-      {/* Retour */}
-      <button onClick={() => navigate('/admin/orders')}
-        className="flex items-center gap-2 text-blue-500 hover:text-blue-700 transition">
-        <ArrowLeft className="w-5 h-5" /> Retour aux commandes
-      </button>
+      {/* ── Barre d'outils supérieure (Retour & Remboursement) ── */}
+      <div className="flex items-center justify-between gap-4">
+        <button onClick={() => navigate('/admin/orders')}
+          className="flex items-center gap-2 text-blue-500 hover:text-blue-700 transition">
+          <ArrowLeft className="w-5 h-5" /> Retour aux commandes
+        </button>
+
+        {/* ✅ Bouton de remboursement entièrement corrigé pour AdminRefundPage */}
+        {order.status === 'Terminé' && (
+          <button 
+            onClick={() => {
+              navigate('/admin/refund', { 
+                state: { 
+                  order: {
+                    ...order,
+                    userId: client // Envoie l'objet client nettoyé et complet requis
+                  }
+                } 
+              });
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-xl border border-purple-200 text-sm font-medium shadow-sm transition"
+          >
+            <ArrowLeftRight className="w-4 h-4" /> Transférer vers Remboursement
+          </button>
+        )}
+      </div>
 
       {/* Message */}
       {saveMsg.text && (
@@ -302,12 +318,8 @@ const AdminOrderDetailsPage = () => {
             onChange={(e) => setNewStatus(e.target.value)}
             className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
           >
-            <option value="pending">⏳ En attente</option>
-            <option value="processing">🔄 En cours</option>
-            <option value="completed">✅ Terminé</option>
-            <option value="En attente">⏳ En attente (ancien)</option>
-            <option value="En cours">🔄 En cours (ancien)</option>
-            <option value="Terminé">✅ Terminé (ancien)</option>
+            <option value="En cours">🔄 En cours</option>
+            <option value="Terminé">✅ Terminé</option>
             <option value="Annulé">❌ Annulé</option>
           </select>
         </div>
@@ -412,8 +424,6 @@ const ClientField = ({ icon: Icon, label, value, mono = false, copyKey, onCopy, 
 
 export default AdminOrderDetailsPage;
 
-
-
 // // src/pages/admin/AdminOrderDetailsPage.jsx
 // import { useState, useEffect } from 'react';
 // import { useParams, useNavigate } from 'react-router-dom';
@@ -429,16 +439,17 @@ export default AdminOrderDetailsPage;
 //   hour: '2-digit', minute: '2-digit'
 // }).format(new Date(d)) : '—';
 
+// // 🔁 Remplacement du symbole par FG (design uniquement)
 // const formatCurrency = (v) =>
-//   new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(v || 0);
+//   `${new Intl.NumberFormat('fr-FR').format(v || 0)} Fg`;
 
 // // ✅ Statuts du modèle Order (pending/processing/completed)
 // const STATUS_OPTIONS = [
-//   { value: 'pending',    label: '⏳ En attente',  badge: 'bg-blue-100 text-blue-700' },
+//   { value: 'pending',    label: '⏳ en cours',  badge: 'bg-blue-100 text-blue-700' },
 //   { value: 'processing', label: '🔄 En cours',    badge: 'bg-yellow-100 text-yellow-700' },
 //   { value: 'completed',  label: '✅ Terminé',      badge: 'bg-green-100 text-green-700' },
 //   // Anciens statuts français (compatibilité)
-//   { value: 'En attente', label: '⏳ En attente',  badge: 'bg-blue-100 text-blue-700' },
+//   { value: 'en cours', label: '⏳ en cours',  badge: 'bg-blue-100 text-blue-700' },
 //   { value: 'En cours',   label: '🔄 En cours',    badge: 'bg-yellow-100 text-yellow-700' },
 //   { value: 'Terminé',    label: '✅ Terminé',      badge: 'bg-green-100 text-green-700' },
 //   { value: 'Annulé',     label: '❌ Annulé',       badge: 'bg-red-100 text-red-700' },
@@ -475,7 +486,422 @@ export default AdminOrderDetailsPage;
 //   const [order, setOrder] = useState(null);
 //   const [loading, setLoading] = useState(true);
 //   const [error, setError] = useState('');
-//   const [newStatus, setNewStatus] = useState('pending');
+//   const [newStatus, setNewStatus] = useState('En cours');
+//   const [deliveryData, setDeliveryData] = useState({});
+//   const [adminNotes, setAdminNotes] = useState('');
+//   const [saving, setSaving] = useState(false);
+//   const [saveMsg, setSaveMsg] = useState({ type: '', text: '' });
+//   const [copied, setCopied] = useState('');
+
+//   useEffect(() => {
+//     if (!orderId) return;
+//     const fetch = async () => {
+//       setLoading(true);
+//       setError('');
+//       try {
+//         const res = await adminService.getOrderById(orderId);
+//         const data = res.data?.data || res.data;
+//         setOrder(data);
+//         setNewStatus(data?.status || 'pending');
+//         // deliveryData est un Map MongoDB → convertir en objet JS
+//         const dd = data?.deliveryData;
+//         setDeliveryData(dd instanceof Map ? Object.fromEntries(dd) : (dd || {}));
+//         setAdminNotes(data?.adminNotes || '');
+//       } catch (err) {
+//         console.error('Erreur:', err);
+//         setError('Impossible de charger les détails de la commande.');
+//       } finally {
+//         setLoading(false);
+//       }
+//     };
+//     fetch();
+//   }, [orderId]);
+
+//   const copy = (text, key) => {
+//     navigator.clipboard.writeText(String(text));
+//     setCopied(key);
+//     setTimeout(() => setCopied(''), 2000);
+//   };
+
+//   const addDeliveryField = () => {
+//     const key = prompt('Nom du champ (ex: licenseKey, accessCode, password):');
+//     if (key?.trim()) setDeliveryData(p => ({ ...p, [key.trim()]: '' }));
+//   };
+
+//   const handleSave = async () => {
+//     setSaving(true);
+//     setSaveMsg({ type: '', text: '' });
+//     try {
+//       const res = await adminService.updateOrder(orderId, {
+//         status: newStatus,
+//         deliveryData,
+//         adminNotes,
+//       });
+//       const data = res.data?.data || res.data;
+//       setOrder(data);
+//       setSaveMsg({ type: 'success', text: '✅ Commande mise à jour avec succès !' });
+//     } catch {
+//       setSaveMsg({ type: 'error', text: 'Erreur lors de la mise à jour.' });
+//     } finally {
+//       setSaving(false);
+//     }
+//   };
+
+//   if (loading) return (
+//     <div className="flex flex-col items-center justify-center py-20">
+//       <div className="w-16 h-16 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin" />
+//       <p className="mt-4 text-gray-500">Chargement...</p>
+//     </div>
+//   );
+
+//   if (error || !order) return (
+//     <div className="max-w-4xl mx-auto p-4 sm:p-6">
+//       <button onClick={() => navigate('/admin/orders')} className="flex items-center gap-2 text-blue-500 mb-6">
+//         <ArrowLeft className="w-5 h-5" /> Retour
+//       </button>
+//       <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center">
+//         <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+//         <p className="text-red-600 mb-4">{error || 'Commande non trouvée'}</p>
+//         <button onClick={() => window.location.reload()} className="px-6 py-2 bg-red-500 text-white rounded-lg">
+//           Réessayer
+//         </button>
+//       </div>
+//     </div>
+//   );
+
+//   // ✅ Champs corrects : userId et serviceId (pas user/service)
+//   const client  = order.userId  || {};
+//   const service = order.serviceId || {};
+//   const fieldsRequired = service.fieldsRequired || [];
+
+//   // ✅ userSubmittedData est un Map MongoDB → convertir en objet
+//   const submitted = order.userSubmittedData instanceof Map
+//     ? Object.fromEntries(order.userSubmittedData)
+//     : (order.userSubmittedData || {});
+
+//   return (
+//     <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6">
+
+//       {/* Retour */}
+//       <button onClick={() => navigate('/admin/orders')}
+//         className="flex items-center gap-2 text-blue-500 hover:text-blue-700 transition">
+//         <ArrowLeft className="w-5 h-5" /> Retour aux commandes
+//       </button>
+
+//       {/* Message */}
+//       {saveMsg.text && (
+//         <div className={`p-4 rounded-xl border ${saveMsg.type === 'success'
+//           ? 'bg-green-50 border-green-200 text-green-700'
+//           : 'bg-red-50 border-red-200 text-red-700'}`}>
+//           {saveMsg.text}
+//         </div>
+//       )}
+
+//       {/* ── En-tête commande ── */}
+//       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-100 dark:border-gray-700">
+//         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+//           <div className="flex items-center gap-4">
+//             <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center flex-shrink-0">
+//               <Package className="w-7 h-7 text-white" />
+//             </div>
+//             <div className="min-w-0">
+//               <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white break-words">
+//                 {order.serviceDetails?.name || service.name || 'Service inconnu'}
+//               </h1>
+//               <div className="flex flex-wrap items-center gap-2 mt-1">
+//                 <span className="text-sm text-gray-500">
+//                   {order.serviceDetails?.category || service.category}
+//                 </span>
+//                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getBadge(order.status)}`}>
+//                   {getLabel(order.status)}
+//                 </span>
+//               </div>
+//             </div>
+//           </div>
+//           <div className="text-right flex-shrink-0">
+//             <p className="text-xs text-gray-500 mb-1">Référence</p>
+//             <div className="flex items-center gap-2 justify-end">
+//               <span className="font-mono text-sm font-bold text-gray-700 dark:text-gray-300">
+//                 #{order._id?.slice(-8)}
+//               </span>
+//               <button onClick={() => copy(order._id, 'id')} className="text-gray-400 hover:text-blue-500">
+//                 <Copy className="w-4 h-4" />
+//               </button>
+//               {copied === 'id' && <span className="text-xs text-green-500">Copié!</span>}
+//             </div>
+//           </div>
+//         </div>
+
+//         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
+//           <InfoBox icon={Calendar} label="Date"       value={formatDate(order.createdAt)} />
+//           <InfoBox icon={Euro}     label="Montant"    value={formatCurrency(order.serviceDetails?.price || order.amount)} color="text-green-600" />
+//           <InfoBox icon={Clock}    label="Délai"      value={service.deliveryTime || 'N/A'} />
+//           <InfoBox icon={Tag}      label="Catégorie"  value={order.serviceDetails?.category || service.category || 'N/A'} />
+//         </div>
+//       </div>
+
+//       {/* ── Informations du client ── */}
+//       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-100 dark:border-gray-700">
+//         <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+//           <User className="w-5 h-5 text-blue-500" /> Informations du client
+//         </h2>
+
+//         {client._id ? (
+//           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+//             <ClientField icon={User}       label="Nom"          value={client.name} />
+//             <ClientField icon={Mail}       label="Email"        value={client.email}
+//               copyKey="email" onCopy={copy} copied={copied} />
+//             <ClientField icon={CreditCard} label="Solde"        value={formatCurrency(client.balance)} />
+//             <ClientField icon={Shield}     label="Rôle"         value={client.role} />
+//             <ClientField icon={Calendar}   label="Membre depuis" value={formatDate(client.createdAt)} />
+//             <ClientField icon={Hash}       label="ID Client"    value={client._id}
+//               mono copyKey="uid" onCopy={copy} copied={copied} />
+//           </div>
+//         ) : (
+//           <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+//             <p className="text-sm text-yellow-700">
+//               ⚠️ Informations client non disponibles — la commande a peut-être été créée 
+//               avant la mise à jour du système.
+//             </p>
+//             {order.userId && (
+//               <p className="text-xs text-yellow-600 mt-1 font-mono break-all">
+//                 ID stocké : {order.userId?.toString?.() || String(order.userId)}
+//               </p>
+//             )}
+//           </div>
+//         )}
+//       </div>
+
+//       {/* ── Données soumises par le client ── */}
+//       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-100 dark:border-gray-700">
+//         <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+//           <FileText className="w-5 h-5 text-purple-500" /> Données soumises par le client
+//         </h2>
+
+//         {Object.keys(submitted).length > 0 ? (
+//           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+//             {Object.entries(submitted).map(([key, value]) => {
+//               const fieldDef = fieldsRequired.find(f => f.name === key);
+//               const label = fieldDef?.label || FIELD_LABELS[key] || key;
+//               return (
+//                 <div key={key} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-100 dark:border-gray-600">
+//                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 font-medium uppercase tracking-wide">
+//                     {label}
+//                   </p>
+//                   <div className="flex items-center justify-between gap-2">
+//                     <p className="font-mono text-sm font-bold text-gray-900 dark:text-white break-all">
+//                       {String(value)}
+//                     </p>
+//                     <button onClick={() => copy(String(value), key)}
+//                       className="text-gray-400 hover:text-blue-500 flex-shrink-0">
+//                       <Copy className="w-4 h-4" />
+//                     </button>
+//                   </div>
+//                   {copied === key && <span className="text-xs text-green-500">Copié!</span>}
+//                   {fieldDef?.helpText && (
+//                     <p className="text-xs text-gray-400 mt-1">{fieldDef.helpText}</p>
+//                   )}
+//                 </div>
+//               );
+//             })}
+//           </div>
+//         ) : (
+//           <p className="text-sm text-gray-500 italic">
+//             Aucune donnée soumise par le client pour cette commande.
+//           </p>
+//         )}
+//       </div>
+
+//       {/* ── Traitement ── */}
+//       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-100 dark:border-gray-700 space-y-6">
+//         <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+//           <CheckCircle className="w-5 h-5 text-green-500" /> Traitement de la commande
+//         </h2>
+
+//         {/* Statut */}
+//         <div>
+//           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+//             Statut
+//           </label>
+//           <select
+//             value={newStatus}
+//             onChange={(e) => setNewStatus(e.target.value)}
+//             className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+//           >
+//             <option value="pending">⏳ en cours</option>
+//             <option value="processing">🔄 En cours</option>
+//             <option value="completed">✅ Terminé</option>
+//             <option value="en cours">⏳ en cours (ancien)</option>
+//             <option value="En cours">🔄 En cours (ancien)</option>
+//             <option value="Terminé">✅ Terminé (ancien)</option>
+//             <option value="Annulé">❌ Annulé</option>
+//           </select>
+//         </div>
+
+//         {/* Données de livraison */}
+//         <div>
+//           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+//             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+//               Données de livraison
+//             </label>
+//             <button onClick={addDeliveryField}
+//               className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 border border-blue-200">
+//               <Plus className="w-4 h-4" /> Ajouter un champ
+//             </button>
+//           </div>
+
+//           {Object.keys(deliveryData).length === 0 ? (
+//             <p className="text-sm text-gray-500 italic">
+//               Aucune donnée de livraison. Cliquez sur "Ajouter un champ".
+//             </p>
+//           ) : (
+//             <div className="space-y-3">
+//               {Object.entries(deliveryData).map(([key, value]) => (
+//                 <div key={key} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+//                   <span className="w-full sm:w-36 text-xs font-medium text-gray-500 uppercase flex-shrink-0 break-words">
+//                     {key}
+//                   </span>
+//                   <input
+//                     type="text"
+//                     value={value}
+//                     onChange={(e) => setDeliveryData(p => ({ ...p, [key]: e.target.value }))}
+//                     placeholder={`Valeur pour ${key}`}
+//                     className="flex-1 w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+//                   />
+//                   <button
+//                     onClick={() => setDeliveryData(p => { const n = { ...p }; delete n[key]; return n; })}
+//                     className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg flex-shrink-0 self-end sm:self-center">
+//                     <Trash2 className="w-4 h-4" />
+//                   </button>
+//                 </div>
+//               ))}
+//             </div>
+//           )}
+//         </div>
+
+//         {/* Notes admin */}
+//         <div>
+//           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+//             Notes internes (admin)
+//           </label>
+//           <textarea
+//             value={adminNotes}
+//             onChange={(e) => setAdminNotes(e.target.value)}
+//             rows={3}
+//             placeholder="Notes visibles uniquement par les admins..."
+//             className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none"
+//           />
+//         </div>
+
+//         <button onClick={handleSave} disabled={saving}
+//           className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all flex items-center justify-center gap-2 font-medium">
+//           {saving
+//             ? <><Loader className="w-5 h-5 animate-spin" /> Enregistrement...</>
+//             : <><Save className="w-5 h-5" /> Enregistrer les modifications</>}
+//         </button>
+//       </div>
+//     </div>
+//   );
+// };
+
+// const InfoBox = ({ icon: Icon, label, value, color = 'text-gray-900' }) => (
+//   <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-100 dark:border-gray-600">
+//     <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{label}</p>
+//     <div className="flex items-center gap-2">
+//       <Icon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+//       <span className={`text-sm font-bold ${color} dark:text-white break-words`}>{value}</span>
+//     </div>
+//   </div>
+// );
+
+// const ClientField = ({ icon: Icon, label, value, mono = false, copyKey, onCopy, copied }) => (
+//   <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-600">
+//     <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+//       <Icon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+//     </div>
+//     <div className="min-w-0 flex-1">
+//       <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">{label}</p>
+//       <div className="flex items-center justify-between gap-2">
+//         <p className={`text-sm font-medium text-gray-900 dark:text-white break-all ${mono ? 'font-mono text-xs' : ''}`}>
+//           {value || '—'}
+//         </p>
+//         {copyKey && value && (
+//           <button onClick={() => onCopy(value, copyKey)} className="text-gray-400 hover:text-blue-500 flex-shrink-0">
+//             <Copy className="w-3.5 h-3.5" />
+//           </button>
+//         )}
+//       </div>
+//       {copied === copyKey && <span className="text-xs text-green-500">Copié!</span>}
+//     </div>
+//   </div>
+// );
+
+// export default AdminOrderDetailsPage;
+
+
+
+// // src/pages/admin/AdminOrderDetailsPage.jsx
+// import { useState, useEffect } from 'react';
+// import { useParams, useNavigate } from 'react-router-dom';
+// import {
+//   ArrowLeft, Package, Calendar, Euro, CheckCircle,
+//   AlertCircle, Save, Loader, Copy, User, Mail, CreditCard,
+//   Shield, Tag, Clock, Hash, FileText, Plus, Trash2
+// } from 'lucide-react';
+// import adminService from '../../services/adminService';
+
+// const formatDate = (d) => d ? new Intl.DateTimeFormat('fr-FR', {
+//   day: '2-digit', month: '2-digit', year: 'numeric',
+//   hour: '2-digit', minute: '2-digit'
+// }).format(new Date(d)) : '—';
+
+// const formatCurrency = (v) =>
+//   new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(v || 0);
+
+// // ✅ Statuts du modèle Order (pending/processing/completed)
+// const STATUS_OPTIONS = [
+//   { value: 'pending',    label: '⏳ en cours',  badge: 'bg-blue-100 text-blue-700' },
+//   { value: 'processing', label: '🔄 En cours',    badge: 'bg-yellow-100 text-yellow-700' },
+//   { value: 'completed',  label: '✅ Terminé',      badge: 'bg-green-100 text-green-700' },
+//   // Anciens statuts français (compatibilité)
+//   { value: 'en cours', label: '⏳ en cours',  badge: 'bg-blue-100 text-blue-700' },
+//   { value: 'En cours',   label: '🔄 En cours',    badge: 'bg-yellow-100 text-yellow-700' },
+//   { value: 'Terminé',    label: '✅ Terminé',      badge: 'bg-green-100 text-green-700' },
+//   { value: 'Annulé',     label: '❌ Annulé',       badge: 'bg-red-100 text-red-700' },
+// ];
+
+// const getBadge = (status) => {
+//   const s = STATUS_OPTIONS.find(o => o.value === status);
+//   return s?.badge || 'bg-gray-100 text-gray-700';
+// };
+
+// const getLabel = (status) => {
+//   const s = STATUS_OPTIONS.find(o => o.value === status);
+//   return s?.label || status;
+// };
+
+// // Labels lisibles pour les champs soumis
+// const FIELD_LABELS = {
+//   imei: 'Numéro IMEI',
+//   serialNumber: 'Numéro de série (SN)',
+//   imageUrl: 'Lien image',
+//   username: "Nom d'utilisateur",
+//   email: 'Email (logiciel)',
+//   quantity: 'Quantité',
+//   duration: 'Durée',
+//   notes: 'Notes',
+//   remoteType: 'Outil remote',
+//   remoteId: 'ID de connexion',
+// };
+
+// const AdminOrderDetailsPage = () => {
+//   const { orderId } = useParams();
+//   const navigate = useNavigate();
+
+//   const [order, setOrder] = useState(null);
+//   const [loading, setLoading] = useState(true);
+//   const [error, setError] = useState('');
+//   const [newStatus, setNewStatus] = useState('En cours');
 //   const [deliveryData, setDeliveryData] = useState({});
 //   const [adminNotes, setAdminNotes] = useState('');
 //   const [saving, setSaving] = useState(false);
@@ -717,10 +1143,10 @@ export default AdminOrderDetailsPage;
 //             onChange={(e) => setNewStatus(e.target.value)}
 //             className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
 //           >
-//             <option value="pending">⏳ En attente</option>
+//             <option value="pending">⏳ en cours</option>
 //             <option value="processing">🔄 En cours</option>
 //             <option value="completed">✅ Terminé</option>
-//             <option value="En attente">⏳ En attente (ancien)</option>
+//             <option value="en cours">⏳ en cours (ancien)</option>
 //             <option value="En cours">🔄 En cours (ancien)</option>
 //             <option value="Terminé">✅ Terminé (ancien)</option>
 //             <option value="Annulé">❌ Annulé</option>
@@ -863,7 +1289,7 @@ export default AdminOrderDetailsPage;
 
 //   // État pour l'édition des données de livraison
 //   const [deliveryData, setDeliveryData] = useState({});
-//   const [newStatus, setNewStatus] = useState('pending');
+//   const [newStatus, setNewStatus] = useState('En cours');
 //   const [saving, setSaving] = useState(false);
 //   const [saveError, setSaveError] = useState('');
 //   const [saveSuccess, setSaveSuccess] = useState('');
@@ -1182,7 +1608,7 @@ export default AdminOrderDetailsPage;
 //               onChange={(e) => setNewStatus(e.target.value)}
 //               className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
 //             >
-//               <option value="pending">⏳ En attente</option>
+//               <option value="pending">⏳ en coursoption>
 //               <option value="processing">🔄 En cours</option>
 //               <option value="completed">✅ Terminé</option>
 //             </select>

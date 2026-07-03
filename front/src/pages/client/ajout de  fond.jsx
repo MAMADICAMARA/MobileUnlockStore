@@ -160,7 +160,8 @@ const AddFundsPage = () => {
       </div>
      {/* Modal choix du mode de paiement */}
       {showPaymentModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-8 relative">
             <h2 className="text-2xl font-bold mb-6 text-blue-700">Choisissez votre mode de paiement</h2>
             <button onClick={() => setShowPaymentModal(false)} className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
@@ -174,11 +175,13 @@ const AddFundsPage = () => {
             </div>
             <button onClick={handleNext} disabled={!selectedMethod} className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 disabled:bg-gray-300">Suivant</button>
           </div>
+          </div>
         </div>
       )}
       {/* Modal coordonnées selon mode de paiement */}
       {showDetailsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-8 relative">
             <h2 className="text-2xl font-bold mb-6 text-blue-700">Coordonnées pour {selectedMethod?.name}</h2>
             <button onClick={() => setShowDetailsModal(false)} className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
@@ -188,6 +191,7 @@ const AddFundsPage = () => {
                 {loading ? 'Traitement...' : 'Valider le paiement'}
               </button>
             </form>
+          </div>
           </div>
         </div>
       )}

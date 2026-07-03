@@ -1,5 +1,6 @@
 // back/utils/sendEmail.js
-const Brevo = require('@getbrevo/brevo');
+const Brevo  = require('@getbrevo/brevo');
+const logger = require('./logger');
 require('dotenv').config();
 
 // ──────────────────────────────────────────────────────────────
@@ -22,7 +23,7 @@ apiInstance.setApiKey(process.env.BREVO_API_KEY);
  */
 async function sendOTP(toEmail, otp) {
   // ────────────────────────────── PAUSE ACTIVE ──────────────────────────────
-  console.log(`[OTP EN PAUSE] Appel ignoré pour ${toEmail} - Code: ${otp}`);
+  logger.log(`[OTP EN PAUSE] Appel ignoré pour ${toEmail} - Code: ${otp}`);
   return true;   // Simule un succès pour ne pas casser la logique du controller
   // ─────────────────────────────────────────────────────────────────────────
 

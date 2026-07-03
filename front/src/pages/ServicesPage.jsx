@@ -1,12 +1,10 @@
 // src/pages/ServicesPage.jsx
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { 
-  Search, 
-  Filter, 
-  Smartphone, 
-  Key, 
-  Globe, 
+import {
+  Search,
+  Smartphone,
+  Key,
   CreditCard,
   X,
   Sparkles,
@@ -31,8 +29,7 @@ const ServicesPage = () => {
   const [error, setError]                         = useState('');
   const [filter, setFilter]                       = useState('Tous');
   const [searchTerm, setSearchTerm]               = useState('');
-  const [showFilters, setShowFilters]             = useState(false);
-  const [isModalOpen, setIsModalOpen]             = useState(false);
+const [isModalOpen, setIsModalOpen]             = useState(false);
   const [selectedService, setSelectedService]     = useState(null);
   const [showInsufficientModal, setShowInsufficientModal] = useState(false);
   const [pageLoaded, setPageLoaded]               = useState(false);
@@ -209,31 +206,33 @@ const ServicesPage = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-12 pr-4 py-4 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-400"
             />
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-            >
-              <Filter className={`w-5 h-5 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-            </button>
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
           </div>
 
-          {/* Filtres */}
-          <div className={`transition-all duration-300 overflow-hidden ${showFilters ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
-            <div className="flex flex-wrap justify-center gap-2 p-2">
+          {/* Filtres — scroll horizontal sur mobile, wrap sur desktop */}
+          <div className="overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
+            <div className="flex gap-2 w-max sm:w-auto sm:flex-wrap sm:justify-center">
               {filterTabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setFilter(tab.id)}
-                  className={`relative group px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 overflow-hidden ${
+                  className={`relative group flex-shrink-0 px-4 py-2.5 rounded-xl font-medium text-sm transition-all duration-300 overflow-hidden ${
                     filter === tab.id
                       ? `bg-gradient-to-r ${tab.color} text-white shadow-lg scale-105`
                       : 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:scale-105'
                   }`}
                 >
                   <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity"></div>
-                  <div className="relative flex items-center gap-2">
+                  <div className="relative flex items-center gap-1.5">
                     <tab.icon className="w-4 h-4" />
-                    <span>{tab.label}</span>
+                    <span className="whitespace-nowrap">{tab.label}</span>
                   </div>
                 </button>
               ))}
@@ -278,7 +277,7 @@ const ServicesPage = () => {
         {/* Affichage des services */}
         {!loading && !error && (
           <>
-            {filter === 'Tous' ? (
+            {filter === 'Tous' && !searchTerm ? (
               <div className="space-y-16">
                 {categories.map(category => {
                   const categoryServices = servicesByCategory[category.id] || [];
@@ -333,7 +332,7 @@ const ServicesPage = () => {
                       <Search className="w-10 h-10 text-gray-400" />
                     </div>
                     <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                      Aucun service trouvé dans cette catégorie
+                      Aucun service trouvé
                     </h3>
                     <p className="text-gray-600 dark:text-gray-400">
                       Essayez une autre catégorie ou modifiez votre recherche
@@ -367,7 +366,8 @@ const ServicesPage = () => {
 
       {/* Modal solde insuffisant */}
       {showInsufficientModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm">
+          <div className="flex min-h-full items-center justify-center p-4">
           <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-8 text-center">
             <button
               onClick={() => setShowInsufficientModal(false)}
@@ -396,6 +396,7 @@ const ServicesPage = () => {
                 Plus tard
               </button>
             </div>
+          </div>
           </div>
         </div>
       )}

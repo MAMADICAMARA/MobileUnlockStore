@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import useBodyScrollLock from '../../hooks/useBodyScrollLock';
 
 const CodeVerificationModal = ({ isOpen, email, onVerify, onResend, onClose, type }) => {
+  useBodyScrollLock(isOpen);
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,7 +37,8 @@ const CodeVerificationModal = ({ isOpen, email, onVerify, onResend, onClose, typ
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto">
+      <div className="flex min-h-full items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm">
         <h2 className="text-xl font-bold text-blue-700 mb-4">Vérification du code</h2>
         <p className="text-sm text-gray-600 mb-4">
@@ -67,6 +70,7 @@ const CodeVerificationModal = ({ isOpen, email, onVerify, onResend, onClose, typ
             Annuler
           </button>
         </div>
+      </div>
       </div>
     </div>
   );

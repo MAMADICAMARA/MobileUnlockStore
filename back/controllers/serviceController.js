@@ -170,11 +170,12 @@ exports.getServices = async (req, res) => {
       filter.category = category;
     }
 
-    // Par défaut, ne montrer que les services actifs
+    // Masquer uniquement les services explicitement désactivés (active: false)
+    // Les services sans champ active (undefined) sont considérés actifs
     if (active === 'false') {
       filter.active = false;
     } else {
-      filter.active = true;
+      filter.active = { $ne: false };
     }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);

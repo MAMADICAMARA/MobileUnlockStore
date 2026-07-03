@@ -53,12 +53,12 @@ const StatusBadge = ({ status }) => {
       icon: XCircle,
       label: 'Échoué'
     },
-    'En attente': {
+    'en cours': {
       bg: 'bg-gradient-to-r from-yellow-500/10 to-amber-500/10',
       text: 'text-yellow-600 dark:text-yellow-400',
       border: 'border-yellow-200 dark:border-yellow-800',
       icon: Clock,
-      label: 'En attente'
+      label: 'en cours'
     },
     'Remboursé': {
       bg: 'bg-gradient-to-r from-purple-500/10 to-pink-500/10',
@@ -69,7 +69,7 @@ const StatusBadge = ({ status }) => {
     }
   };
 
-  const { bg, text, border, icon: Icon, label } = config[status] || config['En attente'];
+  const { bg, text, border, icon: Icon, label } = config[status] || config['en cours'];
 
   return (
     <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${bg} ${text} border ${border}`}>
@@ -133,7 +133,7 @@ const PaymentsHistoryPage = () => {
       // Calculer les stats
       const total = response.data.length;
       const successful = response.data.filter(p => p.status === 'Réussi').length;
-      const pending = response.data.filter(p => p.status === 'En attente').length;
+      const pending = response.data.filter(p => p.status === 'en cours').length;
       const totalAmount = response.data
         .filter(p => p.status === 'Réussi')
         .reduce((sum, p) => sum + p.amount, 0);
@@ -240,7 +240,7 @@ const PaymentsHistoryPage = () => {
           color="from-green-500 to-emerald-500"
         />
         <StatCard
-          title="En attente"
+          title="en cours"
           value={stats.pending}
           icon={Clock}
           color="from-yellow-500 to-amber-500"
@@ -289,7 +289,7 @@ const PaymentsHistoryPage = () => {
                 >
                   <option value="Tous">Tous les statuts</option>
                   <option value="Réussi">Réussi</option>
-                  <option value="En attente">En attente</option>
+                  <option value="en cours">en cours</option>
                   <option value="Échoué">Échoué</option>
                   <option value="Remboursé">Remboursé</option>
                 </select>
@@ -536,9 +536,10 @@ const PaymentsHistoryPage = () => {
 
       {/* Modal de détails de paiement */}
       {showDetailsModal && selectedPayment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm">
+          <div className="flex min-h-full items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-slate-800 z-10">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                 Détails du paiement
               </h2>
@@ -621,6 +622,7 @@ const PaymentsHistoryPage = () => {
                 </button>
               </div>
             </div>
+          </div>
           </div>
         </div>
       )}

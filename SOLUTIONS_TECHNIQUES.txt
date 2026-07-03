@@ -1,0 +1,1199 @@
+================================================================================
+   SOLUTIONS TECHNIQUES — MobileUnlockStore
+   Objectif : 98%+ sécurisé, fonctionnel, qualité production
+   Rédigé par : Développeur Full-Stack MERN Sénior
+   Date : 2026-07-01
+================================================================================
+
+PRINCIPES DE CE DOCUMENT
+─────────────────────────
+Chaque solution est:
+  • Spécifique — fichier + ligne + code exact
+  • Motivée — pourquoi ce choix et pas un autre
+  • Sans régression — ne casse pas l'existant
+  • Ordonnée par priorité : CRITIQUE → MAJEUR → MINEUR
+
+DÉPENDANCES À INSTALLER EN PRIORITÉ
+────────────────────────────────────
+  npm install express-rate-limit helmet mongoose-lean-virtuals --save
+  npm install express-validator --save
+  npm install winston --save           ← remplace console.log en prod
+
+================================================================================
+PARTIE I — PROBLEMES CRITIQUES (4)
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+[C-1] SEC-02 — Pas de rate limiting sur /api/auth/login et /api/auth/register
+Fichier : back/app.js
+────────────────────────────────────────────────────────────────────────────────
+
+PROBLÈME :
+  Un attaquant peut envoyer 100 000 tentatives de login par minute par brute-force
+  sans aucune résistance. Le site serait compromis en quelques heures.
+
+SOLUTION — Ajouter express-rate-limit AVANT les routes auth :
+
+  Dans back/app.js, après les imports existants, ajouter :
+
+  ┌─────────────────────────────────────────────────────────────────────────────
+  │ const rateLimit = require('express-rate-limit');
+  │ const helmet = require('helmet');
+  │
+  │ // Sécurité HTTP headers (OWASP)
+  │ app.use(helmet());
+  │
+  │ // Rate limit strict sur auth (10 tentatives / 15 minutes par IP)
+  │ const authLimiter = rateLimit({
+  │   windowMs: 15 * 60 * 1000,   // 15 minutes
+  │   max: 10,
+  │   message: { success: false, message: 'Trop de tentatives. Réessayez dans 15 minutes.' },
+  │   standardHeaders: true,
+  │   legacyHeaders: false,
+  │ });
+  │
+  │ // Rate limit général sur toute l'API (200 req / min par IP)
+  │ const apiLimiter = rateLimit({
+  │   windowMs: 60 * 1000,
+  │   max: 200,
+  │   message: { success: false, message: 'Trop de requêtes. Réessayez dans un instant.' },
+  │ });
+  │
+  │ app.use('/api/auth/login',    authLimiter);
+  │ app.use('/api/auth/register', authLimiter);
+  │ app.use('/api',               apiLimiter);
+  └─────────────────────────────────────────────────────────────────────────────
+
+  Placer ces lignes APRÈS app.use(express.json()) mais AVANT app.use('/api/auth', authRoutes).
+
+POURQUOI CETTE APPROCHE :
+  express-rate-limit est maintenu, léger, et fonctionne en production sans Redis
+  (en mémoire). Helmet corrige 11 failles HTTP header en une ligne.
+
+────────────────────────────────────────────────────────────────────────────────
+[C-2] BUG-01 — Race condition : commande créée AVANT déduction du solde
+Fichier : back/routes/orderRoutes.js, lignes 143-159
+────────────────────────────────────────────────────────────────────────────────
+
+PROBLÈME ACTUEL :
+  1. Order.create() → commande créée
+  2. user.save() → si cette ligne échoue (timeout, erreur réseau, crash),
+     le client a sa commande MAIS son solde n'a pas été débité.
+  Il obtient le service gratuitement.
+
+SOLUTION — Opération atomique avec findOneAndUpdate :
+  L'astuce : utiliser $inc avec une condition { balance: { $gte: finalAmount } }.
+  MongoDB garantit atomicité au niveau document sans transaction.
+  Si le solde est insuffisant au moment de l'opération, rien n'est modifié.
+
+  Remplacer les lignes 111-159 par :
+
+  ┌─────────────────────────────────────────────────────────────────────────────
+  │ // 1. Vérifier que le service est actif
+  │ const service = await Service.findById(serviceId);
+  │ if (!service) return res.status(404).json({ success: false, message: 'Service non trouvé' });
+  │ if (!service.active) return res.status(400).json({ success: false, message: 'Ce service est temporairement indisponible' });
+  │
+  │ // 2. Calculer le montant réel côté serveur (ne jamais faire confiance au client)
+  │ let finalAmount = service.price;
+  │ let finalQty = 1;
+  │ if (quantity && totalPrice) {
+  │   const parsedQty = parseInt(quantity, 10);
+  │   if (isNaN(parsedQty) || parsedQty < 1) {
+  │     return res.status(400).json({ success: false, message: 'Quantité invalide' });
+  │   }
+  │   finalAmount = service.price * parsedQty;  // ← recalcul serveur, pas confiance au totalPrice client
+  │   finalQty = parsedQty;
+  │ }
+  │
+  │ // 3. Déduction atomique : ne débite QUE SI balance >= finalAmount
+  │ //    findOneAndUpdate avec condition = opération atomique MongoDB
+  │ const updatedUser = await User.findOneAndUpdate(
+  │   { _id: userId, balance: { $gte: finalAmount } },   // ← condition atomique
+  │   { $inc: { balance: -finalAmount } },                // ← déduction atomique
+  │   { new: true }
+  │ );
+  │ if (!updatedUser) {
+  │   // Deux causes possibles : solde insuffisant OU utilisateur inexistant
+  │   const userCheck = await User.findById(userId);
+  │   if (!userCheck) return res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
+  │   return res.status(400).json({ success: false, message: 'Solde insuffisant' });
+  │ }
+  │
+  │ // 4. Créer la commande. Si ça échoue → on rembourse immédiatement (compensation)
+  │ let order;
+  │ try {
+  │   order = await Order.create({
+  │     userId,
+  │     serviceId,
+  │     serviceDetails: { name: service.name, price: service.price, category: service.category },
+  │     userSubmittedData: userSubmittedData || {},
+  │     amount: finalAmount,
+  │     quantity: finalQty,
+  │     status: 'pending',
+  │   });
+  │ } catch (orderErr) {
+  │   // COMPENSATION : rembourser si la création de commande échoue
+  │   await User.findByIdAndUpdate(userId, { $inc: { balance: finalAmount } });
+  │   console.error('Création commande échouée, solde remboursé:', orderErr);
+  │   return res.status(500).json({ success: false, message: 'Erreur lors de la création de la commande. Votre solde a été restauré.' });
+  │ }
+  │
+  │ res.status(201).json({ success: true, data: order, newBalance: updatedUser.balance });
+  └─────────────────────────────────────────────────────────────────────────────
+
+POURQUOI CETTE APPROCHE :
+  • findOneAndUpdate avec condition = atomique sans replica set MongoDB
+  • Si la déduction réussit mais la création de commande échoue → compensation immédiate
+  • On ne fait jamais confiance au prix envoyé par le frontend (recalcul serveur)
+
+────────────────────────────────────────────────────────────────────────────────
+[C-3] BUG-02 — Double remboursement possible (N1 + N2 concurrent)
+Fichier : back/routes/adminRoutes.js, lignes 186-206 et 299-344
+────────────────────────────────────────────────────────────────────────────────
+
+PROBLÈME ACTUEL :
+  L'annulation (N1) et le remboursement de litige (N2) utilisent :
+    order = await Order.findByIdAndUpdate(...)
+    client.balance += refundAmount; await client.save();
+  Deux admins simultanés peuvent déclencher les deux avant que l'un des
+  statuts soit persisté → double crédit de 100% du montant.
+
+SOLUTION — Remplacer par findOneAndUpdate atomique avec garde sur le statut :
+
+  ┌── Pour le remboursement N1 (annulation, lignes 186-206) ───────────────────
+  │ // Protection atomique : ne rembourse QUE si le statut est encore annulable
+  │ // et n'a PAS déjà été remboursé
+  │ if (status === 'Annulé' && orderBefore.status !== 'Annulé') {
+  │   const refundAmount = orderBefore.amount || orderBefore.serviceDetails?.price || 0;
+  │   if (refundAmount > 0) {
+  │     // Atomique : ne crédite QUE si le statut de la commande est maintenant 'Annulé'
+  │     // (vérification que personne d'autre n'a changé le statut entre-temps)
+  │     const guardedOrder = await Order.findOneAndUpdate(
+  │       { _id: orderBefore._id, status: { $nin: ['Annulé', 'Remboursé'] } },
+  │       { $set: { status: 'Annulé', cancelledAt: new Date() } },
+  │       { new: true }
+  │     );
+  │     if (guardedOrder) {
+  │       // Ce bloc ne s'exécute qu'une SEULE fois même en cas d'appels concurrents
+  │       await User.findByIdAndUpdate(
+  │         orderBefore.userId,
+  │         { $inc: { balance: refundAmount } }
+  │       );
+  │     }
+  │   }
+  │ }
+  └─────────────────────────────────────────────────────────────────────────────
+
+  ┌── Pour le remboursement N2 (litige, lignes 299-344) ───────────────────────
+  │ // Utiliser findOneAndUpdate pour changer le statut ATOMIQUEMENT
+  │ // Le filtre { status: { $nin: ['Remboursé', 'Annulé'] } } garantit
+  │ // qu'un seul remboursement peut réussir même si deux admins cliquent ensemble
+  │ const guardedOrder = await Order.findOneAndUpdate(
+  │   {
+  │     _id: orderId,
+  │     status: { $in: ['Terminé', 'completed'] }  // seules ces commandes sont remboursables
+  │   },
+  │   {
+  │     $set: {
+  │       status: 'Remboursé',
+  │       refundReason: refundReason || 'Litige technique',
+  │       refundedAt: new Date(),
+  │       refundedBy: req.user.id
+  │     }
+  │   },
+  │   { new: true }
+  │ );
+  │ if (!guardedOrder) {
+  │   return res.status(409).json({
+  │     success: false,
+  │     message: 'Cette commande a déjà été remboursée ou ne peut pas l\'être.'
+  │   });
+  │ }
+  │ // Si on arrive ici, on est le seul à avoir modifié le statut
+  │ await User.findByIdAndUpdate(order.userId, { $inc: { balance: refundAmount } });
+  └─────────────────────────────────────────────────────────────────────────────
+
+POURQUOI CETTE APPROCHE :
+  findOneAndUpdate avec une condition de filtre sur le statut = verrou optimiste.
+  Si deux admins cliquent simultanément, le second findOneAndUpdate ne trouvera
+  plus le document (statut déjà modifié par le premier) et retournera null.
+  Un seul remboursement passe. Pas besoin de Redis ou de mutex.
+
+────────────────────────────────────────────────────────────────────────────────
+[C-4] BUG-07 — cancelOrder appelle DELETE /api/orders/:id qui n'existe pas
+Fichiers : back/routes/orderRoutes.js + front/src/services/orderService.js
+────────────────────────────────────────────────────────────────────────────────
+
+PROBLÈME ACTUEL :
+  orderService.js appelle api.delete('/api/orders/:id') → 404 systématique.
+  Le client ne peut jamais annuler une commande. Route inexistante au backend.
+
+SOLUTION — Ajouter la route DELETE dans back/routes/orderRoutes.js :
+
+  ┌── Ajouter AVANT module.exports, dans back/routes/orderRoutes.js ────────────
+  │ // DELETE /api/orders/:id — Annulation par le client (uniquement si en cours)
+  │ router.delete('/:id', protect, async (req, res) => {
+  │   try {
+  │     const userId = req.user.id || req.user._id;
+  │
+  │     // Chercher ET verrouiller atomiquement : propriétaire + statut annulable
+  │     const cancelled = await Order.findOneAndUpdate(
+  │       {
+  │         _id: req.params.id,
+  │         userId: userId,
+  │         status: { $in: ['pending', 'en cours'] }   // seul statut annulable
+  │       },
+  │       { $set: { status: 'Annulé', cancelledAt: new Date() } },
+  │       { new: true }
+  │     );
+  │
+  │     if (!cancelled) {
+  │       // Distinguer "pas le propriétaire" de "statut non annulable"
+  │       const exists = await Order.findOne({ _id: req.params.id, userId });
+  │       if (!exists) return res.status(404).json({ success: false, message: 'Commande non trouvée' });
+  │       return res.status(400).json({ success: false, message: 'Cette commande ne peut plus être annulée (statut trop avancé)' });
+  │     }
+  │
+  │     // Remboursement immédiat
+  │     const refundAmount = cancelled.amount || cancelled.serviceDetails?.price || 0;
+  │     if (refundAmount > 0) {
+  │       await User.findByIdAndUpdate(userId, { $inc: { balance: refundAmount } });
+  │       await createNotification({
+  │         userId,
+  │         title: '🔄 Commande annulée',
+  │         message: `Votre commande "${cancelled.serviceDetails?.name}" a été annulée. ${refundAmount} FG remboursé sur votre solde.`,
+  │         type: 'info',
+  │       });
+  │     }
+  │
+  │     res.json({ success: true, message: 'Commande annulée avec succès', newBalance: (await User.findById(userId)).balance });
+  │   } catch (error) {
+  │     console.error('Erreur annulation commande:', error);
+  │     res.status(500).json({ success: false, message: 'Erreur lors de l\'annulation' });
+  │   }
+  │ });
+  └─────────────────────────────────────────────────────────────────────────────
+
+  ┌── Dans front/src/services/orderService.js : s'assurer que cancelOrder ────
+  │ cancelOrder: (orderId) => api.delete(`/api/orders/${orderId}`),
+  └─────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[C-5] COH-04 — AdminUsersPage.jsx est entièrement commentée (page morte)
+Fichier : front/src/pages/admin/AdminUsersPage.jsx
+────────────────────────────────────────────────────────────────────────────────
+
+PROBLÈME ACTUEL :
+  Tout le composant est dans un bloc de commentaires. La route /admin/users
+  mène à une page blanche. Les admins ne peuvent pas gérer les utilisateurs.
+
+SOLUTION :
+  Décommenter TOUT le fichier AdminUsersPage.jsx.
+  Si le code commenté est trop ancien ou cassé, réécrire un composant minimal
+  qui appelle l'API existante GET /api/admin/users :
+
+  ┌── Composant de remplacement minimal fonctionnel ───────────────────────────
+  │ import { useEffect, useState } from 'react';
+  │ import { adminService } from '../../services/adminService';
+  │
+  │ const AdminUsersPage = () => {
+  │   const [users, setUsers] = useState([]);
+  │   const [loading, setLoading] = useState(true);
+  │   const [error, setError] = useState('');
+  │
+  │   useEffect(() => {
+  │     adminService.getAllUsers()
+  │       .then(res => setUsers(res.data?.data || res.data || []))
+  │       .catch(() => setError('Impossible de charger les utilisateurs'))
+  │       .finally(() => setLoading(false));
+  │   }, []);
+  │
+  │   if (loading) return <div>Chargement...</div>;
+  │   if (error)   return <div style={{color:'red'}}>{error}</div>;
+  │
+  │   return (
+  │     <div>
+  │       <h1>Gestion des utilisateurs ({users.length})</h1>
+  │       <table>
+  │         <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Solde</th><th>Statut</th></tr></thead>
+  │         <tbody>
+  │           {users.map(u => (
+  │             <tr key={u._id}>
+  │               <td>{u.name}</td>
+  │               <td>{u.email}</td>
+  │               <td>{u.role}</td>
+  │               <td>{u.balance} FG</td>
+  │               <td>{u.isActive ? 'Actif' : 'Bloqué'}</td>
+  │             </tr>
+  │           ))}
+  │         </tbody>
+  │       </table>
+  │     </div>
+  │   );
+  │ };
+  │ export default AdminUsersPage;
+  └─────────────────────────────────────────────────────────────────────────────
+
+  Ce composant de base sera suffisant. Le style existant du projet peut ensuite
+  être appliqué par-dessus.
+
+================================================================================
+PARTIE II — PROBLÈMES MAJEURS (19)
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+[M-1] SEC-01 — Solde dans le JWT : stale et lisible en base64
+Fichier : back/controllers/authController.js, ligne 8
+────────────────────────────────────────────────────────────────────────────────
+
+PROBLÈME :
+  Le balance est encodé dans le JWT au moment du login. Il ne change jamais
+  pendant les 30 jours de validité du token. Tout client peut décoder le JWT
+  en base64 et voir son solde (et celui des champs isMaintenanceAllowed, etc.)
+
+SOLUTION — Retirer balance du payload JWT :
+
+  ┌── back/controllers/authController.js, remplacer generateToken ─────────────
+  │ // AVANT :
+  │ const generateToken = (id, role, email, name, balance, isMaintenanceAllowed) => {
+  │   const payload = { id, _id: id, role, email, name, balance, isMaintenanceAllowed };
+  │   return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' });
+  │ };
+  │
+  │ // APRÈS :
+  │ const generateToken = (id, role, email, name, isMaintenanceAllowed) => {
+  │   // Ne jamais mettre le balance dans le JWT : stale + lisible sans clé secrète
+  │   const payload = { id, _id: id, role, email, name, isMaintenanceAllowed };
+  │   return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' });
+  │ };
+  └─────────────────────────────────────────────────────────────────────────────
+
+  ┌── Mettre à jour tous les appels à generateToken (login, refreshToken) ─────
+  │ // Chercher dans authController.js : generateToken(user._id, user.role, ...)
+  │ // Retirer le paramètre balance de chaque appel
+  └─────────────────────────────────────────────────────────────────────────────
+
+  ┌── front/src/context/AuthContext.jsx ───────────────────────────────────────
+  │ // Dans le bloc "Priorité 2 : cachedBalance + données du JWT" (ligne 144-156)
+  │ // Le fallback decoded.balance ?? 0 sera toujours 0 (supprimé du JWT)
+  │ // Ce n'est pas un problème : cachedBalance sera toujours présent après login
+  │ // S'assurer que login() SET toujours cachedBalance (déjà fait)
+  └─────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[M-2] SEC-04 — console.log exposant des données financières en production
+Fichiers : back/routes/orderRoutes.js:161, back/routes/adminRoutes.js:109,197,333
+────────────────────────────────────────────────────────────────────────────────
+
+SOLUTION — Logger conditionnel (ne logge qu'en développement) :
+
+  ┌── Créer back/utils/logger.js ───────────────────────────────────────────────
+  │ const isDev = process.env.NODE_ENV !== 'production';
+  │
+  │ const logger = {
+  │   info:  (...args) => isDev && console.log('[INFO]',  ...args),
+  │   warn:  (...args) => isDev && console.warn('[WARN]',  ...args),
+  │   error: (...args) =>          console.error('[ERROR]',...args),  // toujours loggué
+  │   debug: (...args) => isDev && console.log('[DEBUG]', ...args),
+  │ };
+  │
+  │ module.exports = logger;
+  └─────────────────────────────────────────────────────────────────────────────
+
+  Remplacer dans orderRoutes.js et adminRoutes.js :
+    console.log(`💳 Commande: ${user.email}...`)
+  Par :
+    logger.info(`Commande: -${finalAmount} FG → solde: ${updatedUser.balance} FG`);
+  Note : ne jamais logger l'email en production.
+
+  ┌── Dans le frontend (AuthContext.jsx, api.js, orderService.js) ─────────────
+  │ // Remplacer tous les console.log et console.debug par :
+  │ if (import.meta.env.DEV) console.log(...)
+  │
+  │ // OU créer front/src/utils/logger.js :
+  │ const logger = {
+  │   log:   (...a) => import.meta.env.DEV && console.log(...a),
+  │   debug: (...a) => import.meta.env.DEV && console.debug(...a),
+  │   error: (...a) => console.error(...a),
+  │ };
+  │ export default logger;
+  └─────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[M-3] SEC-05 — req.body injecté directement dans MongoDB (Service.create/update)
+Fichier : back/routes/adminRoutes.js, lignes 131-148
+────────────────────────────────────────────────────────────────────────────────
+
+PROBLÈME :
+  Service.create(req.body) → un admin malveillant ou token volé peut injecter
+  n'importe quel champ arbitraire en base de données.
+
+SOLUTION — Whitelist explicite des champs autorisés :
+
+  ┌── back/routes/adminRoutes.js — POST /services ─────────────────────────────
+  │ router.post('/services', protect, admin, async (req, res) => {
+  │   try {
+  │     const { name, description, price, category, active, fieldsRequired,
+  │             deliveryTime, imageUrl, serviceType } = req.body;
+  │
+  │     // Validation basique
+  │     if (!name || !price || !category) {
+  │       return res.status(400).json({ error: 'name, price et category sont requis' });
+  │     }
+  │     if (isNaN(Number(price)) || Number(price) <= 0) {
+  │       return res.status(400).json({ error: 'price doit être un nombre positif' });
+  │     }
+  │
+  │     // Whitelist : on ne crée qu'avec les champs connus
+  │     const service = await Service.create({
+  │       name: String(name).trim(),
+  │       description: description ? String(description).trim() : '',
+  │       price: Number(price),
+  │       category: String(category).trim(),
+  │       active: active !== undefined ? Boolean(active) : true,
+  │       fieldsRequired: Array.isArray(fieldsRequired) ? fieldsRequired : [],
+  │       deliveryTime: deliveryTime || '',
+  │       imageUrl: imageUrl || '',
+  │       serviceType: serviceType || 'standard',
+  │     });
+  │     res.status(201).json(service);
+  │   } catch (error) {
+  │     res.status(500).json({ error: 'Erreur lors de la création du service' });
+  │   }
+  │ });
+  └─────────────────────────────────────────────────────────────────────────────
+
+  Même logique pour PUT /services/:id : extraire les champs autorisés et
+  construire l'objet update manuellement plutôt que passer req.body tel quel.
+
+────────────────────────────────────────────────────────────────────────────────
+[M-4] SEC-06 — Route api/dashboard sans slash + sans authentification
+Fichier : back/app.js, ligne 86
+────────────────────────────────────────────────────────────────────────────────
+
+SOLUTION :
+
+  ┌── back/app.js, ligne 86 ────────────────────────────────────────────────────
+  │ // AVANT (ne matche jamais) :
+  │ app.get('api/dashboard', async (req, res, next) => {
+  │
+  │ // APRÈS (slash + protection admin) :
+  │ // Option A : supprimer cette route (les stats sont déjà dans /api/admin/dashboard-stats)
+  │ // Option B : la corriger et la protéger
+  │
+  │ const { protect, admin } = require('./middleware/authMiddleware');
+  │ app.get('/api/dashboard', protect, admin, async (req, res, next) => {
+  └─────────────────────────────────────────────────────────────────────────────
+
+  Recommandation : supprimer cette route car /api/admin/dashboard-stats existe
+  déjà et fait la même chose avec protection admin.
+
+────────────────────────────────────────────────────────────────────────────────
+[M-5] BUG-03 — fixUserRole corrige silencieusement sans alerte
+Fichiers : back/routes/orderRoutes.js:20-23, back/routes/adminRoutes.js:98-99
+────────────────────────────────────────────────────────────────────────────────
+
+SOLUTION :
+
+  ┌── Remplacer la fonction fixUserRole partout ────────────────────────────────
+  │ // AVANT :
+  │ const fixUserRole = (user) => {
+  │   const validRoles = ['client', 'admin', 'utilisateur-employer'];
+  │   if (!validRoles.includes(user.role)) user.role = 'client';
+  │ };
+  │
+  │ // APRÈS :
+  │ const fixUserRole = (user, context = '') => {
+  │   const validRoles = ['client', 'admin', 'utilisateur-employer'];
+  │   if (!validRoles.includes(user.role)) {
+  │     // Alerte : donnée corrompue en base → à investiguer
+  │     console.error(`[ALERTE] Rôle invalide "${user.role}" pour user ${user._id} (${user.email}) — corrigé en "client". Contexte: ${context}`);
+  │     user.role = 'client';
+  │   }
+  │ };
+  │
+  │ // Puis à chaque appel :
+  │ fixUserRole(user, 'orderRoutes/POST');
+  └─────────────────────────────────────────────────────────────────────────────
+
+  Sur le long terme : ajouter une collection AuditLog pour tracer ces anomalies.
+
+────────────────────────────────────────────────────────────────────────────────
+[M-6] BUG-04 — Commande possible sur un service inactif
+Fichier : back/routes/orderRoutes.js, lignes 105-108
+────────────────────────────────────────────────────────────────────────────────
+
+  Déjà intégré dans la solution C-2 ci-dessus (vérification service.active).
+  Rappel de la ligne à ajouter après Service.findById() :
+
+  ┌─────────────────────────────────────────────────────────────────────────────
+  │ if (!service.active) {
+  │   return res.status(400).json({
+  │     success: false,
+  │     message: 'Ce service est temporairement indisponible'
+  │   });
+  │ }
+  └─────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[M-7] BUG-05 — findByIdAndUpdate contourne les middlewares pre('save') d'Order
+Fichier : back/routes/adminRoutes.js, lignes 180-183
+────────────────────────────────────────────────────────────────────────────────
+
+PROBLÈME :
+  findByIdAndUpdate ignore complètement les hooks pre('save') et post('save')
+  de Mongoose. processedAt, completedAt, refundedAt ne sont jamais renseignés.
+
+SOLUTION — Utiliser findById + modifications + save() :
+
+  ┌── back/routes/adminRoutes.js — PUT /orders/:id/status ─────────────────────
+  │ // AVANT :
+  │ const order = await Order.findByIdAndUpdate(req.params.id, { status }, { new: true })
+  │
+  │ // APRÈS :
+  │ const order = await Order.findById(req.params.id);
+  │ if (!order) return res.status(404).json({ success: false, message: 'Commande non trouvée' });
+  │ order.status = status;
+  │ // Les middlewares pre('save') de Order.js seront maintenant déclenchés
+  │ // → processedAt, completedAt, refundedAt seront correctement renseignés
+  │ await order.save();
+  │ // Repopuler après save
+  │ await order.populate('userId',    'name email role balance isActive');
+  │ await order.populate('serviceId', 'name category price');
+  └─────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[M-8] COH-01 — Dualité statuts anglais/français
+Fichiers : back/models/Order.js, back/routes/adminRoutes.js, front/src/services/
+────────────────────────────────────────────────────────────────────────────────
+
+PROBLÈME :
+  Statuts créés en 'pending' (anglais) mais filtrés en 'Terminé' (français).
+  Les KPIs dashboard ne comptent que 'Terminé' et ignorent 'completed'.
+
+SOLUTION — Normaliser en français PARTOUT (choix du français car l'UI est FR) :
+
+  ┌── back/models/Order.js — enum des statuts ─────────────────────────────────
+  │ status: {
+  │   type: String,
+  │   enum: ['En attente', 'En cours', 'Terminé', 'Annulé', 'Remboursé'],
+  │   default: 'en cours',  // ← était 'pending'
+  │ }
+  └─────────────────────────────────────────────────────────────────────────────
+
+  ┌── back/routes/orderRoutes.js — POST / (création de commande) ──────────────
+  │ status: 'En attente',   // ← était 'pending'
+  └─────────────────────────────────────────────────────────────────────────────
+
+  ┌── back/routes/adminRoutes.js — dashboard-stats ────────────────────────────
+  │ // Remplacer :
+  │ const completed = allOrders.filter(o => o.status === 'Terminé').length;
+  │ // Les 'completed' anglais n'existeront plus après migration
+  └─────────────────────────────────────────────────────────────────────────────
+
+  ┌── front/src/services/orderService.js — isOrderCancellable ─────────────────
+  │ const CANCELLABLE = ['En attente'];   // un seul statut annulable
+  │ const isOrderCancellable = (order) => CANCELLABLE.includes(order?.status);
+  └─────────────────────────────────────────────────────────────────────────────
+
+  MIGRATION BD (script à exécuter une fois) :
+  ┌─────────────────────────────────────────────────────────────────────────────
+  │ // back/scripts/migrateStatuses.js — à exécuter UNE FOIS avec node
+  │ const Order = require('../models/Order');
+  │ const map = { 'pending':'En attente', 'completed':'Terminé',
+  │               'processing':'En cours', 'cancelled':'Annulé' };
+  │ async function migrate() {
+  │   for (const [old, newVal] of Object.entries(map)) {
+  │     const r = await Order.updateMany({ status: old }, { $set: { status: newVal } });
+  │     console.log(`${old} → ${newVal} : ${r.modifiedCount} commandes`);
+  │   }
+  │ }
+  │ migrate().then(() => process.exit(0));
+  └─────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[M-9] COH-02 — userSubmittedDataMetadata jamais renseigné
+Fichier : back/routes/orderRoutes.js, lignes 143-154
+────────────────────────────────────────────────────────────────────────────────
+
+SOLUTION — Construire les métadonnées depuis les fieldsRequired du service :
+
+  ┌── back/routes/orderRoutes.js — dans Order.create() ────────────────────────
+  │ // Construire les métadonnées depuis fieldsRequired du service
+  │ const metadata = {};
+  │ if (service.fieldsRequired && Array.isArray(service.fieldsRequired)) {
+  │   service.fieldsRequired.forEach(field => {
+  │     if (field.name && field.label) {
+  │       metadata[field.name] = field.label;
+  │     }
+  │   });
+  │ }
+  │
+  │ const order = await Order.create({
+  │   userId,
+  │   serviceId,
+  │   serviceDetails: { name: service.name, price: service.price, category: service.category },
+  │   userSubmittedData: userSubmittedData || {},
+  │   userSubmittedDataMetadata: metadata,    // ← AJOUT
+  │   amount: finalAmount,
+  │   quantity: finalQty,
+  │   status: 'En attente',
+  │ });
+  └─────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[M-10] COH-03 — Solde JWT désynchronisé après transaction financière
+Fichier : back/controllers/authController.js + front/src/context/AuthContext.jsx
+────────────────────────────────────────────────────────────────────────────────
+
+  La solution à ce problème est déjà implémentée dans la session précédente :
+  • refreshBalance() dans AuthContext.jsx appelle GET /api/auth/profile
+  • handleSubmit dans ServiceModal.jsx appelle refreshBalance() après commande
+  • La solution M-1 (retirer balance du JWT) élimine définitivement le problème
+
+  Vérifier que getProfile dans authController retourne bien user.balance à jour :
+
+  ┌── back/controllers/authController.js — getProfile ─────────────────────────
+  │ const getProfile = async (req, res) => {
+  │   try {
+  │     // Toujours lire depuis la BD (jamais depuis le token)
+  │     const user = await User.findById(req.user.id || req.user._id)
+  │       .select('name email role balance isActive isMaintenanceAllowed createdAt');
+  │     if (!user) return res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
+  │     res.json({ success: true, user });
+  │   } catch (error) {
+  │     res.status(500).json({ success: false, message: 'Erreur profil' });
+  │   }
+  │ };
+  └─────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[M-11] COH-05 — GET /api/admin/services/:id inexistant
+Fichier : back/routes/adminRoutes.js
+────────────────────────────────────────────────────────────────────────────────
+
+SOLUTION — Ajouter la route manquante :
+
+  ┌── back/routes/adminRoutes.js — après GET /services ────────────────────────
+  │ router.get('/services/:id', protect, admin, async (req, res) => {
+  │   try {
+  │     const service = await Service.findById(req.params.id);
+  │     if (!service) return res.status(404).json({ error: 'Service non trouvé' });
+  │     res.json(service);
+  │   } catch (error) {
+  │     res.status(500).json({ error: 'Erreur lors du chargement du service' });
+  │   }
+  │ });
+  └─────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[M-12] COH-06 — Routes fantômes dans adminService.js (getOrderByCode, etc.)
+Fichier : front/src/services/adminService.js
+────────────────────────────────────────────────────────────────────────────────
+
+DEUX OPTIONS — choisir selon la priorité du projet :
+
+  Option A (rapide) : Commenter les fonctions jusqu'à implémentation backend
+  ┌─────────────────────────────────────────────────────────────────────────────
+  │ // TODO: implémenter ces routes côté backend
+  │ // getOrderByCode, getOrderByTransaction, getOrdersByEmail,
+  │ // getOrderByIMEI, getOrderStats, exportOrders
+  └─────────────────────────────────────────────────────────────────────────────
+
+  Option B (correcte) : Implémenter les routes backend manquantes
+
+  ┌── back/routes/adminRoutes.js — routes à ajouter ───────────────────────────
+  │ // Recherche par email
+  │ router.get('/orders/by-email/:email', protect, admin, async (req, res) => {
+  │   const orders = await Order.find({})
+  │     .populate({ path: 'userId', match: { email: req.params.email }, select: 'name email' })
+  │     .lean();
+  │   const filtered = orders.filter(o => o.userId !== null);
+  │   res.json({ success: true, data: filtered });
+  │ });
+  │
+  │ // Stats commandes
+  │ router.get('/orders/stats', protect, admin, async (req, res) => {
+  │   const stats = await Order.aggregate([
+  │     { $group: { _id: '$status', count: { $sum: 1 }, total: { $sum: '$amount' } } }
+  │   ]);
+  │   res.json({ success: true, data: stats });
+  │ });
+  └─────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[M-13] COH-07 — JWT 30 jours sans refresh token ni révocation
+Fichier : back/controllers/authController.js
+────────────────────────────────────────────────────────────────────────────────
+
+SOLUTION — Implémenter un refresh token :
+
+  ┌── Principe ─────────────────────────────────────────────────────────────────
+  │ • Access token : courte durée (15 min → 1h)
+  │ • Refresh token : longue durée (7 jours), stocké en base
+  │ • Si access token expire → client envoie refresh token → nouveau access token
+  └─────────────────────────────────────────────────────────────────────────────
+
+  ┌── back/controllers/authController.js — générer les deux tokens ─────────────
+  │ const crypto = require('crypto');
+  │
+  │ const generateAccessToken = (id, role, email, name, isMaintenanceAllowed) => {
+  │   return jwt.sign(
+  │     { id, _id: id, role, email, name, isMaintenanceAllowed },
+  │     process.env.JWT_SECRET,
+  │     { expiresIn: '1h' }    // ← réduit de 30d à 1h
+  │   );
+  │ };
+  │
+  │ const generateRefreshToken = () => crypto.randomBytes(64).toString('hex');
+  │
+  │ // Dans login() :
+  │ const accessToken  = generateAccessToken(user._id, user.role, user.email, user.name, user.isMaintenanceAllowed);
+  │ const refreshToken = generateRefreshToken();
+  │ const refreshExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 jours
+  │
+  │ // Stocker le refresh token en base (hasher pour la sécurité)
+  │ user.refreshToken       = crypto.createHash('sha256').update(refreshToken).digest('hex');
+  │ user.refreshTokenExpiry = refreshExpiry;
+  │ await user.save();
+  │
+  │ res.json({ ..., token: accessToken, refreshToken });
+  └─────────────────────────────────────────────────────────────────────────────
+
+  ┌── back/routes/authRoutes.js — route de refresh ─────────────────────────────
+  │ router.post('/refresh', async (req, res) => {
+  │   const { refreshToken } = req.body;
+  │   if (!refreshToken) return res.status(401).json({ message: 'Token manquant' });
+  │
+  │   const hashed = crypto.createHash('sha256').update(refreshToken).digest('hex');
+  │   const user = await User.findOne({
+  │     refreshToken: hashed,
+  │     refreshTokenExpiry: { $gt: new Date() }
+  │   });
+  │   if (!user) return res.status(401).json({ message: 'Session expirée, reconnectez-vous' });
+  │
+  │   const newAccess = generateAccessToken(user._id, user.role, user.email, user.name, user.isMaintenanceAllowed);
+  │   res.json({ token: newAccess });
+  │ });
+  └─────────────────────────────────────────────────────────────────────────────
+
+  ┌── Ajouter dans le modèle User ──────────────────────────────────────────────
+  │ refreshToken:       { type: String, default: null },
+  │ refreshTokenExpiry: { type: Date,   default: null },
+  └─────────────────────────────────────────────────────────────────────────────
+
+  ┌── front/src/services/api.js — intercepteur pour auto-refresh ───────────────
+  │ api.interceptors.response.use(
+  │   r => r,
+  │   async err => {
+  │     if (err.response?.status === 401 && !err.config._retry) {
+  │       err.config._retry = true;
+  │       const rt = localStorage.getItem('refreshToken');
+  │       if (rt) {
+  │         try {
+  │           const { data } = await axios.post('/api/auth/refresh', { refreshToken: rt });
+  │           localStorage.setItem('token', data.token);
+  │           err.config.headers.Authorization = `Bearer ${data.token}`;
+  │           return api(err.config);
+  │         } catch { localStorage.clear(); window.location.href = '/login'; }
+  │       }
+  │     }
+  │     return Promise.reject(err.response?.data || err);
+  │   }
+  │ );
+  └─────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[M-14] COH-08 — updateOrderStatus dans orderService pointe vers mauvaises URLs
+Fichier : front/src/services/orderService.js
+────────────────────────────────────────────────────────────────────────────────
+
+SOLUTION — Corriger les URLs pour correspondre aux routes réelles du backend :
+
+  ┌── front/src/services/orderService.js ──────────────────────────────────────
+  │ // Détail d'une commande (admin) :
+  │ // AVANT : GET /api/admin/orders/:id
+  │ // APRÈS : GET /api/orders/admin/:id    ← route réelle dans orderRoutes.js
+  │ getAdminOrderById: (id) => api.get(`/api/orders/admin/${id}`),
+  │
+  │ // Mise à jour du statut (admin) :
+  │ // La route PUT /api/admin/orders/:id/status existe dans adminRoutes.js
+  │ // Vérifier que adminService.updateOrderStatus appelle la bonne URL
+  │ updateOrderStatus: (id, status, data) =>
+  │   api.put(`/api/admin/orders/${id}/status`, { status, ...data }),
+  └─────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[M-15] UX-03 — Dashboard affiche "2FA actif" alors que le 2FA est désactivé
+Fichier : front/src/pages/client/DashboardPage.jsx, lignes 562-569
+────────────────────────────────────────────────────────────────────────────────
+
+SOLUTION — Masquer complètement le bloc 2FA tant que la fonctionnalité est désactivée :
+
+  ┌─────────────────────────────────────────────────────────────────────────────
+  │ {/* Bloc 2FA : masqué tant que la fonctionnalité n'est pas activée */}
+  │ {false && (
+  │   <div className="security-block">
+  │     {/* ... contenu 2FA ... */}
+  │   </div>
+  │ )}
+  └─────────────────────────────────────────────────────────────────────────────
+
+  Quand le 2FA sera réactivé, remplacer {false &&} par la condition réelle
+  (ex: {user?.twoFactorEnabled && ...}).
+
+────────────────────────────────────────────────────────────────────────────────
+[M-16] UX-04 — Boutons Dashboard pointent vers des routes non définies
+Fichier : front/src/App.jsx + front/src/pages/client/DashboardPage.jsx
+────────────────────────────────────────────────────────────────────────────────
+
+SOLUTION — Deux approches selon les ressources disponibles :
+
+  Option A (immédiate) : Remplacer les liens cassés par des pages existantes
+  ┌─────────────────────────────────────────────────────────────────────────────
+  │ // /client/add-funds     → créer AddFundsPage ou rediriger vers le profil
+  │ // /client/balance-history → rediriger vers /client/orders (historique commandes)
+  │ // /client/security      → masquer le bouton (2FA désactivé)
+  │ // /client/activity      → rediriger vers /client/orders
+  └─────────────────────────────────────────────────────────────────────────────
+
+  Option B (correcte) : Créer les pages manquantes dans App.jsx
+  ┌── front/src/App.jsx ────────────────────────────────────────────────────────
+  │ import AddFundsPage       from './pages/client/AddFundsPage';
+  │ import BalanceHistoryPage from './pages/client/BalanceHistoryPage';
+  │
+  │ // Dans les routes protégées client :
+  │ <Route path="/client/add-funds"       element={<AddFundsPage />} />
+  │ <Route path="/client/balance-history" element={<BalanceHistoryPage />} />
+  └─────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[M-17] UX-05 — Erreurs mal gérées dans AdminRefundPage (toujours générique)
+Fichier : front/src/pages/admin/AdminRefundPage.jsx, ligne 38
+────────────────────────────────────────────────────────────────────────────────
+
+PROBLÈME :
+  L'intercepteur api.js lance error.response.data (l'objet data directement).
+  Donc err.response est undefined → err.response?.data?.message = undefined.
+
+SOLUTION — Adapter la lecture de l'erreur au comportement réel de l'intercepteur :
+
+  ┌── front/src/pages/admin/AdminRefundPage.jsx ────────────────────────────────
+  │ // AVANT :
+  │ setError(err.response?.data?.message || 'Erreur lors du remboursement');
+  │
+  │ // APRÈS :
+  │ // L'intercepteur api.js lance directement l'objet { message, success }
+  │ setError(err?.message || err?.error || 'Erreur lors du remboursement');
+  └─────────────────────────────────────────────────────────────────────────────
+
+  Cette correction s'applique à TOUS les catch() du frontend qui utilisaient
+  err.response?.data?.message. Les remplacer systématiquement par :
+  err?.message || err?.error || 'Message d'erreur par défaut'
+
+────────────────────────────────────────────────────────────────────────────────
+[M-18] UX-07 — Aucune pagination sur les listes admin
+Fichier : back/routes/adminRoutes.js:160-170 + front/src/pages/admin/
+────────────────────────────────────────────────────────────────────────────────
+
+SOLUTION — Pagination côté serveur avec skip/limit :
+
+  ┌── back/routes/adminRoutes.js — GET /orders ─────────────────────────────────
+  │ router.get('/orders', protect, admin, async (req, res) => {
+  │   try {
+  │     const page  = Math.max(1, parseInt(req.query.page)  || 1);
+  │     const limit = Math.min(100, parseInt(req.query.limit) || 20);  // max 100 par page
+  │     const skip  = (page - 1) * limit;
+  │
+  │     const [orders, total] = await Promise.all([
+  │       Order.find({})
+  │         .populate('userId',    'name email role balance isActive')
+  │         .populate('serviceId', 'name category price')
+  │         .sort({ createdAt: -1 })
+  │         .skip(skip)
+  │         .limit(limit)
+  │         .lean(),
+  │       Order.countDocuments({})
+  │     ]);
+  │
+  │     res.json({
+  │       success: true,
+  │       data: orders,
+  │       pagination: { total, page, limit, pages: Math.ceil(total / limit) }
+  │     });
+  │   } catch (error) {
+  │     res.status(500).json({ success: false, message: 'Erreur chargement commandes' });
+  │   }
+  │ });
+  └─────────────────────────────────────────────────────────────────────────────
+
+  Même logique pour GET /admin/users : ajouter pagination identique.
+
+  ┌── front/src/pages/admin/AdminOrdersPage.jsx ────────────────────────────────
+  │ const [page, setPage] = useState(1);
+  │ const [pagination, setPagination] = useState({});
+  │
+  │ useEffect(() => {
+  │   adminService.getOrders({ page, limit: 20 })
+  │     .then(res => {
+  │       setOrders(res.data?.data || []);
+  │       setPagination(res.data?.pagination || {});
+  │     });
+  │ }, [page]);
+  │
+  │ // Afficher les boutons de pagination :
+  │ <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Précédent</button>
+  │ <span>{page} / {pagination.pages || 1}</span>
+  │ <button disabled={page >= pagination.pages} onClick={() => setPage(p => p + 1)}>Suivant</button>
+  └─────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[M-19] QUA-07 — Tout le projet contient du code commenté massif
+Fichiers : tous les fichiers modifiés du projet
+────────────────────────────────────────────────────────────────────────────────
+
+  Le code commenté représente plus de la moitié de plusieurs fichiers.
+  C'est une dette technique sévère : lisibilité nulle, maintenance impossible.
+
+SOLUTION EN 3 ÉTAPES :
+  1. S'assurer que git est bien configuré et que tous les commits sont faits.
+  2. Pour chaque fichier listé ci-dessous, supprimer TOUS les blocs de code
+     commenté (git conserve l'historique = aucune perte).
+  3. Ne garder que les TODO pertinents sous forme de commentaire court.
+
+  FICHIERS À NETTOYER EN PRIORITÉ :
+  • back/routes/orderRoutes.js  — lignes 186-349 (ancien code commenté)
+  • back/routes/adminRoutes.js  — lignes 348-572 (ancien code commenté)
+  • back/models/Order.js        — blocs commentés
+  • back/models/Service.js      — blocs commentés
+  • back/controllers/authController.js — OTP commenté
+  • back/middleware/authMiddleware.js  — blocs commentés
+  • front/src/components/ServiceModal.jsx — ~2500 lignes commentées
+
+  COMMANDE UTILE (vérification) :
+  Sur chaque fichier, le code actif doit représenter > 80% du contenu.
+
+================================================================================
+PARTIE III — PROBLÈMES MINEURS (12)
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+[m-1] SEC-03 — getProfile renvoie trop de champs sensibles
+Fichier : back/controllers/authController.js, getProfile
+────────────────────────────────────────────────────────────────────────────────
+
+  ┌─────────────────────────────────────────────────────────────────────────────
+  │ // Utiliser .select() pour n'exposer que les champs nécessaires
+  │ const user = await User.findById(req.user.id)
+  │   .select('name email role balance isActive isMaintenanceAllowed createdAt');
+  │ // Champs EXCLUS : password, refreshToken, signupCode, otpCode, etc.
+  └─────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[m-2] SEC-07 — isMaintenanceAllowed dans le JWT
+────────────────────────────────────────────────────────────────────────────────
+
+  Idéalement, lire isMaintenanceAllowed depuis la BD à chaque requête (dans
+  le middleware protect). Moins critique car la vérification serveur dans
+  authMiddleware.js le lit déjà depuis la BD (ligne 48). À supprimer du JWT
+  dans le cadre de la solution M-1 (nettoyage du payload).
+
+────────────────────────────────────────────────────────────────────────────────
+[m-3] BUG-06 — Vérification remboursement N2 mal ordonnée
+Fichier : back/routes/adminRoutes.js, lignes 309-313
+────────────────────────────────────────────────────────────────────────────────
+
+  ┌── AVANT (la 2e condition n'est jamais atteinte) ───────────────────────────
+  │ if (!['Terminé', 'completed'].includes(order.status)) {
+  │   return res.status(400).json({ message: "Seules les commandes terminées..." });
+  │ }
+  │ if (order.status === 'Remboursé') {   // ← jamais atteinte
+  │   return res.status(400).json({ message: 'Déjà remboursé' });
+  │ }
+  └─────────────────────────────────────────────────────────────────────────────
+
+  ┌── APRÈS (vérifications bien ordonnées) ────────────────────────────────────
+  │ if (order.status === 'Remboursé') {   // ← vérifier D'ABORD
+  │   return res.status(400).json({ success: false, message: 'Déjà remboursée' });
+  │ }
+  │ if (!['Terminé', 'completed'].includes(order.status)) {
+  │   return res.status(400).json({ success: false, message: 'Seules les commandes terminées sont remboursables' });
+  │ }
+  └─────────────────────────────────────────────────────────────────────────────
+
+  Note : cette correction est rendue redondante par la solution C-3 (findOneAndUpdate
+  atomique). Mais la garder comme garde supplémentaire.
+
+────────────────────────────────────────────────────────────────────────────────
+[m-4] BUG-08 — isOrderCancellable incomplet
+Fichier : front/src/services/orderService.js
+────────────────────────────────────────────────────────────────────────────────
+
+  ┌── Après normalisation des statuts (COH-01) ─────────────────────────────────
+  │ const isOrderCancellable = (order) => {
+  │   // Seule une commande "En attente" peut être annulée par le client
+  │   // Les autres statuts (En cours, Terminé, Annulé, Remboursé) ne le peuvent pas
+  │   return order?.status === 'En attente';
+  │ };
+  └─────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[m-5] UX-01 — Double gestion du scroll dans ServiceModal
+Fichier : front/src/components/ServiceModal.jsx, lignes 73-81
+────────────────────────────────────────────────────────────────────────────────
+
+  ┌── Supprimer le useEffect manuel, garder uniquement useBodyScrollLock ───────
+  │ // SUPPRIMER ce bloc (redondant avec useBodyScrollLock) :
+  │ useEffect(() => {
+  │   if (isOpen) {
+  │     document.body.style.overflow = 'hidden';
+  │   } else {
+  │     document.body.style.overflow = '';
+  │   }
+  │   return () => { document.body.style.overflow = ''; };
+  │ }, [isOpen]);
+  │
+  │ // Garder uniquement :
+  │ useBodyScrollLock(isOpen);
+  └─────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[m-6] UX-02 — Fermeture automatique du modal en 2500ms trop rapide
+Fichier : front/src/components/ServiceModal.jsx, ligne 265
+────────────────────────────────────────────────────────────────────────────────
+
+  ┌─────────────────────────────────────────────────────────────────────────────
+  │ // AVANT :
+  │ setTimeout(onClose, 2500);
+  │
+  │ // APRÈS : 4 secondes + afficher le numéro de commande
+  │ setSuccess(`Commande #${orderResponse.data?._id?.slice(-6).toUpperCase()} confirmée !`);
+  │ setTimeout(onClose, 4000);
+  └─────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[m-7] QUA-01 — Double déclaration route GET / dans app.js
+Fichier : back/app.js, lignes 40-67 et 70-81
+────────────────────────────────────────────────────────────────────────────────
+
+  ┌── Supprimer la seconde déclaration (lignes 70-81) ─────────────────────────
+  │ // Supprimer ce bloc entier (jamais atteint, Express s'arrête à la première) :
+  │ app.get('/', (req, res) => {
+  │   res.json({ status: 'success', message: 'API is running', ... });
+  │ });
+  └─────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[m-8] QUA-02 — Route api/dashboard sans slash initial (code mort)
+Fichier : back/app.js, ligne 86
+────────────────────────────────────────────────────────────────────────────────
+
+  Voir solution M-4. Recommandation : supprimer cette route entièrement
+  (fonctionnalité couverte par /api/admin/dashboard-stats avec protection).
+
+────────────────────────────────────────────────────────────────────────────────
+[m-9] QUA-03 — Import axios inutile dans ServiceModal
+Fichier : front/src/components/ServiceModal.jsx
+────────────────────────────────────────────────────────────────────────────────
+
+  ┌── Supprimer la ligne ───────────────────────────────────────────────────────
+  │ import axios from 'axios';   // ← à supprimer
+  └─────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[m-10] QUA-04 + QUA-05 — Imports et états inutiles dans ServiceModal
+Fichier : front/src/components/ServiceModal.jsx
+────────────────────────────────────────────────────────────────────────────────
+
+  ┌── À supprimer ──────────────────────────────────────────────────────────────
+  │ // Import inutile :
+  │ import { ..., useMemo, ... } from 'react';   // retirer useMemo
+  │
+  │ // États inutiles (fonctionnalité upload supprimée) :
+  │ const [selectedFile, setSelectedFile]     = useState(null);      // à supprimer
+  │ const [uploadError, setUploadError]       = useState('');        // à supprimer
+  │ const [uploadProgress, setUploadProgress] = useState(0);        // à supprimer
+  └─────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[m-11] QUA-06 — generateOtp() morte dans authController
+Fichier : back/controllers/authController.js, lignes 12-14
+────────────────────────────────────────────────────────────────────────────────
+
+  ┌── Deux options ─────────────────────────────────────────────────────────────
+  │ // Option A (si OTP sera réactivé prochainement) : laisser en place
+  │ // Option B (propre) : supprimer la fonction
+  │
+  │ // Supprimer :
+  │ const generateOtp = () => {
+  │   return Math.floor(100000 + Math.random() * 900000).toString();
+  │ };
+  │ // Elle sera recréée quand le 2FA sera réactivé
+  └─────────────────────────────────────────────────────────────────────────────
+
+================================================================================
+PARTIE IV — FEUILLE DE ROUTE : ORDRE D'IMPLÉMENTATION
+================================================================================
+
+  Les corrections ci-dessus forment un plan de 4 sprints.
+  Chaque sprint est indépendant des autres sauf Sprint 1 (bloquant).
+
+  ┌── SPRINT 1 — Sécurité critique (1-2 jours) ─────────────────────────────────
+  │ 1. [C-1] Rate limiting + Helmet → back/app.js
+  │ 2. [C-2] Race condition commande → back/routes/orderRoutes.js
+  │ 3. [C-3] Double remboursement atomique → back/routes/adminRoutes.js
+  │ 4. [C-4] Route DELETE /api/orders/:id → back/routes/orderRoutes.js
+  │ 5. [C-5] AdminUsersPage → décommenter/réécrire
+  └─────────────────────────────────────────────────────────────────────────────
+
+  ┌── SPRINT 2 — Intégrité des données (2-3 jours) ────────────────────────────
+  │ 6. [M-8]  Normalisation statuts EN → FR + script migration BD
+  │ 7. [M-1]  Retirer balance du JWT
+  │ 8. [M-7]  findByIdAndUpdate → findById + save()
+  │ 9. [M-9]  userSubmittedDataMetadata
+  │ 10.[M-11] Route GET /api/admin/services/:id
+  │ 11.[M-14] Corriger URLs dans orderService.js
+  │ 12.[m-3]  Remettre dans l'ordre les vérifications remboursement N2
+  └─────────────────────────────────────────────────────────────────────────────
+
+  ┌── SPRINT 3 — Frontend et UX (2-3 jours) ───────────────────────────────────
+  │ 13.[M-17] Corriger gestion erreurs (err?.message) dans tous les catch
+  │ 14.[M-18] Pagination backend + frontend
+  │ 15.[M-15] Masquer bloc 2FA fictif
+  │ 16.[M-16] Corriger/créer routes manquantes App.jsx
+  │ 17.[m-6]  Délai fermeture modal → 4000ms
+  │ 18.[m-5]  Supprimer double gestion scroll
+  └─────────────────────────────────────────────────────────────────────────────
+
+  ┌── SPRINT 4 — Sécurité renforcée + qualité (3-5 jours) ─────────────────────
+  │ 19.[M-13] Refresh token (7 jours) + access token (1h)
+  │ 20.[M-2]  Logger conditionnel (supprimer console.log sensibles)
+  │ 21.[M-3]  Whitelist req.body pour les services
+  │ 22.[M-4]  Corriger/supprimer route dashboard sans slash
+  │ 23.[M-5]  fixUserRole avec alerte
+  │ 24.[M-6]  Vérification service.active avant commande
+  │ 25.[M-12] Routes fantômes → implémenter ou supprimer
+  │ 26.[QUA-07] Nettoyer TOUT le code commenté des fichiers
+  │ 27.[m-1 à m-11] Corrections mineures restantes
+  └─────────────────────────────────────────────────────────────────────────────
+
+================================================================================
+PARTIE V — SCORE DE SÉCURITÉ ET QUALITÉ ATTENDU
+================================================================================
+
+  AVANT ces corrections :    estimé à ~45% sécurisé, ~55% fonctionnel
+  APRÈS Sprint 1 seulement : estimé à ~72% sécurisé, ~75% fonctionnel
+  APRÈS Sprint 1+2 :         estimé à ~85% sécurisé, ~88% fonctionnel
+  APRÈS Sprint 1+2+3 :       estimé à ~91% sécurisé, ~95% fonctionnel
+  APRÈS Sprint 1+2+3+4 :     estimé à ~98% sécurisé, ~98% fonctionnel ✓
+
+  Les 2% restants correspondent à :
+  • Tests E2E (Playwright/Cypress) pour couvrir les cas limites
+  • Audit de sécurité externe (OWASP ZAP, Snyk)
+  • Monitoring en production (Sentry pour erreurs + alertes)
+  • Certificat SSL/TLS en production avec HSTS
+
+================================================================================
+FIN DU DOCUMENT DE SOLUTIONS
+================================================================================

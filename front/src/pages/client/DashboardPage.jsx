@@ -1,3 +1,262 @@
+// // src/pages/client/DashboardPage.jsx
+// import { useState, useEffect, useCallback } from 'react';
+// import { Link } from 'react-router-dom';
+// import {
+//   CreditCard, ShoppingBag, Clock, CheckCircle, TrendingUp,
+//   Plus, ArrowRight, RefreshCw, Bell, Shield, Package, Zap
+// } from 'lucide-react';
+// import { useAuth } from '../../hooks/useAuth';
+// import orderService from '../../services/orderService';
+// import TwoFactorSection from '../../components/TwoFactorSection';
+
+// // ─── Utils ────────────────────────────────────────────────────────────────────
+// const fmtCurrency = (n) =>
+//   `${new Intl.NumberFormat('fr-FR').format(n || 0)} FG`;
+
+// const fmtDate = (d) => d
+//   ? new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(d))
+//   : '—';
+
+// const STATUS_CONFIG = {
+//   'En attente': { pill: 'bg-blue-100 text-blue-700',    dot: 'bg-blue-400' },
+//   'En cours':   { pill: 'bg-amber-100 text-amber-700',  dot: 'bg-amber-400' },
+//   'Terminé':    { pill: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-400' },
+//   'Annulé':     { pill: 'bg-red-100 text-red-700',      dot: 'bg-red-400' },
+//   'Remboursé':  { pill: 'bg-purple-100 text-purple-700', dot: 'bg-purple-400' },
+// };
+
+// const StatusBadge = ({ status }) => {
+//   const c = STATUS_CONFIG[status] || { pill: 'bg-gray-100 text-gray-700', dot: 'bg-gray-400' };
+//   return (
+//     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${c.pill}`}>
+//       <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+//       {status}
+//     </span>
+//   );
+// };
+
+// // ─── Composant KPI ────────────────────────────────────────────────────────────
+// const KpiCard = ({ title, value, icon: Icon, color, to }) => {
+//   const content = (
+//     <div className={`bg-white dark:bg-slate-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow`}>
+//       <div className={`w-10 h-10 ${color} rounded-xl flex items-center justify-center mb-3`}>
+//         <Icon className="w-5 h-5" />
+//       </div>
+//       <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-none mb-1">{value}</p>
+//       <p className="text-xs text-gray-500 dark:text-gray-400">{title}</p>
+//     </div>
+//   );
+//   return to ? <Link to={to}>{content}</Link> : content;
+// };
+
+// // ─── Page principale ──────────────────────────────────────────────────────────
+// const DashboardPage = () => {
+//   const { user, updateUserBalance } = useAuth();
+//   const [orders, setOrders]         = useState([]);
+//   const [loading, setLoading]       = useState(true);
+//   const [refreshing, setRefreshing] = useState(false);
+//   const [twoFaUser, setTwoFaUser]   = useState(null);
+
+//   // Synchroniser l'état 2FA local avec le user de l'AuthContext
+//   useEffect(() => {
+//     if (user) setTwoFaUser(user);
+//   }, [user]);
+
+//   const fetchOrders = useCallback(async (isRefresh = false) => {
+//     isRefresh ? setRefreshing(true) : setLoading(true);
+//     try {
+//       const res  = await orderService.getMyOrders();
+//       const data = res.data?.data ?? res.data ?? [];
+//       setOrders(Array.isArray(data) ? data : []);
+//     } catch (err) {
+//       console.error('Erreur chargement commandes:', err);
+//     } finally {
+//       setLoading(false);
+//       setRefreshing(false);
+//     }
+//   }, []);
+
+//   useEffect(() => {
+//     fetchOrders();
+//     // Polling toutes les 30s pour mise à jour des statuts
+//     const interval = setInterval(() => fetchOrders(), 30000);
+//     return () => clearInterval(interval);
+//   }, [fetchOrders]);
+
+//   // ── Stats ─────────────────────────────────────────────────────────────────
+//   const stats = {
+//     total:     orders.length,
+//     completed: orders.filter(o => o.status === 'Terminé').length,
+//     pending:   orders.filter(o => o.status === 'En attente' || o.status === 'En cours').length,
+//     spent:     orders.filter(o => o.status === 'Terminé')
+//                  .reduce((s, o) => s + (o.amount || o.serviceDetails?.price || 0), 0),
+//   };
+
+//   const recentOrders = [...orders]
+//     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+//     .slice(0, 5);
+
+//   return (
+//     <div className="w-full pb-8 space-y-5">
+
+//       {/* ── Bienvenue ── */}
+//       <div className="flex items-center justify-between">
+//         <div>
+//           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+//             Bonjour, {user?.name?.split(' ')[0] || 'Client'} 👋
+//           </h1>
+//           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+//             {new Intl.DateTimeFormat('fr-FR', { weekday:'long', day:'numeric', month:'long' }).format(new Date())}
+//           </p>
+//         </div>
+//         <button onClick={() => fetchOrders(true)} disabled={refreshing}
+//           className="p-2.5 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:bg-gray-50 transition-colors disabled:opacity-60">
+//           <RefreshCw className={`w-4 h-4 text-gray-500 ${refreshing ? 'animate-spin' : ''}`} />
+//         </button>
+//       </div>
+
+//       {/* ── Carte solde ── */}
+//       <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl p-5 sm:p-6 text-white shadow-lg">
+//         <div className="flex items-center justify-between mb-4">
+//           <div>
+//             <p className="text-blue-100 text-sm font-medium mb-1">Solde disponible</p>
+//             <div className="flex items-baseline gap-2">
+//               <span className="text-3xl sm:text-4xl font-black">{fmtCurrency(user?.balance || 0)}</span>
+//             </div>
+//           </div>
+//           <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+//             <CreditCard className="w-6 h-6 text-white" />
+//           </div>
+//         </div>
+//         <div className="flex items-center justify-between pt-3 border-t border-white/20">
+//           <p className="text-blue-100 text-xs">Compte : #{user?.id?.slice(-8) || 'N/A'}</p>
+//           <Link to="/client/add-funds"
+//             className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-xl text-white text-xs font-semibold transition-colors">
+//             <Plus className="w-3.5 h-3.5" /> Recharger
+//           </Link>
+//         </div>
+//       </div>
+
+//       {/* ── KPIs ── */}
+//       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+//         <KpiCard title="Total commandes" value={stats.total}
+//           icon={ShoppingBag} color="bg-blue-100 dark:bg-blue-900/30 text-blue-600"
+//           to="/client/orders" />
+//         <KpiCard title="Terminées" value={stats.completed}
+//           icon={CheckCircle} color="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600"
+//           to="/client/orders" />
+//         <KpiCard title="En cours" value={stats.pending}
+//           icon={Clock} color="bg-amber-100 dark:bg-amber-900/30 text-amber-600"
+//           to="/client/orders" />
+//         <KpiCard title="Total dépensé" value={fmtCurrency(stats.spent)}
+//           icon={TrendingUp} color="bg-purple-100 dark:bg-purple-900/30 text-purple-600" />
+//       </div>
+
+//       {/* ── Actions rapides ── */}
+//       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+//         {[
+//           { to: '/client/services',  icon: Package, label: 'Nos services',   color: 'from-blue-500 to-indigo-600' },
+//           { to: '/client/add-funds', icon: CreditCard, label: 'Recharger',   color: 'from-emerald-500 to-teal-600' },
+//           { to: '/client/orders',    icon: ShoppingBag, label: 'Commandes',  color: 'from-purple-500 to-pink-600' },
+//         ].map(({ to, icon: Icon, label, color }) => (
+//           <Link key={to} to={to}
+//             className={`bg-gradient-to-br ${color} rounded-2xl p-4 text-white shadow-sm hover:shadow-md transition-shadow flex flex-col gap-2`}>
+//             <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
+//               <Icon className="w-5 h-5" />
+//             </div>
+//             <div className="flex items-center justify-between">
+//               <span className="text-sm font-semibold">{label}</span>
+//               <ArrowRight className="w-4 h-4 opacity-70" />
+//             </div>
+//           </Link>
+//         ))}
+//       </div>
+
+//       {/* ── Commandes récentes ── */}
+//       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+//         <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+//           <h2 className="text-base font-bold text-gray-900 dark:text-white">Commandes récentes</h2>
+//           <Link to="/client/orders"
+//             className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium flex items-center gap-1">
+//             Voir tout <ArrowRight className="w-3.5 h-3.5" />
+//           </Link>
+//         </div>
+
+//         {loading ? (
+//           <div className="flex items-center justify-center py-12">
+//             <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+//           </div>
+//         ) : recentOrders.length === 0 ? (
+//           <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-6">
+//             <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center">
+//               <ShoppingBag className="w-6 h-6 text-gray-400" />
+//             </div>
+//             <p className="text-gray-500 dark:text-gray-400 text-sm">Aucune commande pour le moment</p>
+//             <Link to="/client/services"
+//               className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors">
+//               Explorer les services
+//             </Link>
+//           </div>
+//         ) : (
+//           <div className="divide-y divide-gray-50 dark:divide-gray-700/50">
+//             {recentOrders.map((order) => (
+//               <div key={order._id} className="flex items-center gap-3 px-4 sm:px-5 py-3.5">
+//                 <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center flex-shrink-0">
+//                   <Zap className="w-4 h-4 text-white" />
+//                 </div>
+//                 <div className="flex-1 min-w-0">
+//                   <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+//                     {order.serviceId?.name || order.serviceDetails?.name || 'Service'}
+//                   </p>
+//                   <p className="text-xs text-gray-400 mt-0.5">{fmtDate(order.createdAt)}</p>
+//                 </div>
+//                 <div className="flex flex-col items-end gap-1 flex-shrink-0">
+//                   <span className="text-sm font-bold text-gray-900 dark:text-white">
+//                     {fmtCurrency(order.amount || order.serviceDetails?.price || 0)}
+//                   </span>
+//                   <StatusBadge status={order.status} />
+//                 </div>
+//               </div>
+//             ))}
+//           </div>
+//         )}
+//       </div>
+
+//       {/* ── Notifications rapides ── */}
+//       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 sm:p-5">
+//         <div className="flex items-center gap-3 mb-3">
+//           <Bell className="w-5 h-5 text-blue-500" />
+//           <h2 className="text-base font-bold text-gray-900 dark:text-white">Informations</h2>
+//         </div>
+//         <div className="space-y-2">
+//           <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+//             <Shield className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+//             <p className="text-xs text-blue-700 dark:text-blue-300">
+//               Votre solde est sécurisé. Toutes les transactions sont chiffrées.
+//             </p>
+//           </div>
+//           {stats.pending > 0 && (
+//             <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl">
+//               <Clock className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+//               <p className="text-xs text-amber-700 dark:text-amber-300">
+//                 Vous avez {stats.pending} commande{stats.pending > 1 ? 's' : ''} en cours de traitement.
+//               </p>
+//             </div>
+//           )}
+//         </div>
+//       </div>
+
+//       {/* ✅ Section 2FA — fonctionnelle (remplace le faux bloc "2FA actif") */}
+//       <TwoFactorSection
+//         user={twoFaUser}
+//         onStatusChange={(update) => setTwoFaUser(prev => ({ ...prev, ...update }))}
+//       />
+//     </div>
+//   );
+// };
+
+// export default DashboardPage;
+
 // src/pages/client/DashboardPage.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -27,72 +286,114 @@ import {
  * Affiche un résumé des activités de l'utilisateur.
  */
 const DashboardPage = () => {
-  const { user } = useAuth();
+  const { user, refreshBalance } = useAuth();
   const navigate = useNavigate();
-  const [recentOrders, setRecentOrders]     = useState([]);
-  const [activeLicenses, setActiveLicenses] = useState(0);
-  const [openTickets, setOpenTickets]       = useState(0);
-  const [loading, setLoading]               = useState(true);
-  const [error, setError]                   = useState('');
+  const [orders, setOrders]               = useState([]);
+  const [licenses, setLicenses]           = useState([]);
+  const [tickets, setTickets]             = useState([]);
+  const [loading, setLoading]             = useState(true);
+  const [error, setError]                 = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState('month');
+
+  const parseDate = (value) => {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  };
+
+  const addDays = (date, days) => {
+    const d = new Date(date);
+    d.setDate(d.getDate() + days);
+    return d;
+  };
+
+  const isWithinNextDays = (value, days) => {
+    const date = parseDate(value);
+    if (!date) return false;
+    const now = new Date();
+    const limit = addDays(now, days);
+    return date >= now && date <= limit;
+  };
+
+  const getLatestActivityDate = () => {
+    const candidates = [
+      ...orders.map((order) => parseDate(order.createdAt)),
+      ...tickets.map((ticket) => parseDate(ticket.lastUpdate || ticket.updatedAt || ticket.createdAt)),
+    ].filter(Boolean);
+
+    if (candidates.length === 0) return null;
+
+    return candidates.reduce((latest, current) => (current > latest ? current : latest), candidates[0]);
+  };
+
+  const formatRelativeDate = (value) => {
+    const date = parseDate(value);
+    if (!date) return 'Aucune activité';
+
+    const now = new Date();
+    const diffMs = now - date;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return 'Aujourd’hui';
+    if (diffDays === 1) return 'Hier';
+    if (diffDays <= 7) return `Il y a ${diffDays} jour${diffDays > 1 ? 's' : ''}`;
+
+    return new Intl.DateTimeFormat('fr-FR', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(date);
+  };
+
+  const getOrdersForPeriod = () => {
+    const now = new Date();
+    const cutoff = addDays(now, selectedPeriod === 'week' ? -7 : selectedPeriod === 'year' ? -365 : -30);
+    return orders.filter((order) => {
+      const createdAt = parseDate(order.createdAt);
+      return createdAt && createdAt >= cutoff;
+    });
+  };
+
+  const periodOrderCount = getOrdersForPeriod().length;
+  const activeLicenses = licenses.length;
+  const expiringSoonCount = licenses.filter((license) => isWithinNextDays(license.expiryDate, 30)).length;
+  const openTicketsCount = tickets.filter((ticket) => ticket.status !== 'Fermé').length;
+  const resolvedThisMonthCount = tickets.filter((ticket) => {
+    const ticketDate = parseDate(ticket.lastUpdate || ticket.updatedAt || ticket.createdAt);
+    const now = new Date();
+    return (
+      ticket.status === 'Fermé' &&
+      ticketDate &&
+      ticketDate.getFullYear() === now.getFullYear() &&
+      ticketDate.getMonth() === now.getMonth()
+    );
+  }).length;
+  const recentOrders = orders.slice(0, 5);
+  const latestActivityDate = getLatestActivityDate();
+  const lastOrderDate = recentOrders[0]?.createdAt || null;
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       setError('');
+
+      const normalizeData = (response) => {
+        if (!response) return [];
+        if (Array.isArray(response)) return response;
+        if (response?.data && Array.isArray(response.data)) return response.data;
+        if (Array.isArray(response.data?.data)) return response.data.data;
+        return [];
+      };
+
       try {
-        // Récupérer les commandes récentes
-        const ordersRes = await orderService.getOrders();
+        const [ordersRes, licensesRes, ticketsRes] = await Promise.all([
+          orderService.getOrders(),
+          licenseService.getLicenses(),
+          supportService.getTickets(),
+        ]);
 
-        let orders = [];
-        if (ordersRes?.data?.data && Array.isArray(ordersRes.data.data)) {
-          orders = ordersRes.data.data;
-        } else if (ordersRes?.data && Array.isArray(ordersRes.data)) {
-          orders = ordersRes.data;
-        } else if (Array.isArray(ordersRes)) {
-          orders = ordersRes;
-        }
-
-        setRecentOrders(orders.slice(0, 5));
-
-        // Récupérer les licences actives
-        try {
-          const licensesRes = await licenseService.getLicenses();
-          let licenses = [];
-          if (licensesRes?.data?.data && Array.isArray(licensesRes.data.data)) {
-            licenses = licensesRes.data.data;
-          } else if (licensesRes?.data && Array.isArray(licensesRes.data)) {
-            licenses = licensesRes.data;
-          } else if (Array.isArray(licensesRes)) {
-            licenses = licensesRes;
-          }
-          setActiveLicenses(licenses.length);
-        } catch (licenseErr) {
-          console.error('Erreur licences:', licenseErr);
-          setActiveLicenses(0);
-        }
-
-        // Récupérer les tickets ouverts
-        try {
-          const ticketsRes = await supportService.getTickets();
-          let tickets = [];
-          if (ticketsRes?.data?.data && Array.isArray(ticketsRes.data.data)) {
-            tickets = ticketsRes.data.data;
-          } else if (ticketsRes?.data && Array.isArray(ticketsRes.data)) {
-            tickets = ticketsRes.data;
-          } else if (Array.isArray(ticketsRes)) {
-            tickets = ticketsRes;
-          }
-          setOpenTickets(
-            tickets.filter(t =>
-              t.status !== 'Résolu' && t.status !== 'resolved' && t.status !== 'closed'
-            ).length
-          );
-        } catch (ticketErr) {
-          console.error('Erreur tickets:', ticketErr);
-          setOpenTickets(0);
-        }
-
+        setOrders(normalizeData(ordersRes));
+        setLicenses(normalizeData(licensesRes));
+        setTickets(normalizeData(ticketsRes));
       } catch (err) {
         console.error('Erreur Dashboard:', err);
         setError('Impossible de charger le résumé du tableau de bord.');
@@ -104,6 +405,11 @@ const DashboardPage = () => {
     if (user) fetchData();
   }, [user]);
 
+  // Rafraîchit le solde depuis la BD une seule fois au montage du Dashboard
+  useEffect(() => {
+    refreshBalance();
+  }, [refreshBalance]);
+
   const getStatusIcon = (status) => {
     switch (status) {
       case 'Terminé':
@@ -112,7 +418,7 @@ const DashboardPage = () => {
       case 'En cours':
       case 'processing':
         return <ArrowPathIcon className="h-4 w-4 text-amber-600" />;
-      case 'En attente':
+      case 'en cours':
       case 'pending':
         return <ClockIcon className="h-4 w-4 text-blue-600" />;
       case 'Annulé':
@@ -131,7 +437,7 @@ const DashboardPage = () => {
       case 'En cours':
       case 'processing':
         return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'En attente':
+      case 'en cours':
       case 'pending':
         return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'Annulé':
@@ -334,10 +640,10 @@ const DashboardPage = () => {
               <div className="h-12 w-12 bg-gradient-to-br from-amber-600 to-orange-600 rounded-xl flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform duration-300">
                 <LifebuoyIcon className="h-6 w-6" />
               </div>
-              <span className="text-3xl font-bold text-gray-800">{openTickets}</span>
+              <span className="text-3xl font-bold text-gray-800">{openTicketsCount}</span>
             </div>
             <h3 className="text-gray-600 font-medium mb-1">Tickets ouverts</h3>
-            <p className="text-sm text-gray-400">En attente de réponse</p>
+            <p className="text-sm text-gray-400">en cours de réponse</p>
           </div>
         </div>
 
@@ -349,10 +655,12 @@ const DashboardPage = () => {
               <div className="h-12 w-12 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-xl flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform duration-300">
                 <ChartBarIcon className="h-6 w-6" />
               </div>
-              <span className="text-3xl font-bold text-gray-800">12</span>
+              <span className="text-3xl font-bold text-gray-800">{periodOrderCount}</span>
             </div>
             <h3 className="text-gray-600 font-medium mb-1">Services utilisés</h3>
-            <p className="text-sm text-gray-400">Ce mois-ci</p>
+            <p className="text-sm text-gray-400">
+              {selectedPeriod === 'week' ? '7 derniers jours' : selectedPeriod === 'year' ? '12 derniers mois' : '30 derniers jours'}
+            </p>
           </div>
         </div>
       </div>
@@ -383,7 +691,7 @@ const DashboardPage = () => {
                 {recentOrders.map((order, index) => {
                   const serviceName = order.serviceName || order.service?.name || order.serviceDetails?.name || 'Service';
                   const orderId     = order._id || order.id || 'N/A';
-                  const orderStatus = order.status || 'En attente';
+                  const orderStatus = order.status || 'en cours';
                   const orderPrice  = order.price || order.amount || order.serviceDetails?.price || 0;
 
                   return (
@@ -453,7 +761,7 @@ const DashboardPage = () => {
                 </div>
                 <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
                   <span className="text-sm font-medium text-gray-700">Expire bientôt</span>
-                  <span className="text-sm font-bold text-gray-700">2</span>
+                  <span className="text-sm font-bold text-gray-700">{expiringSoonCount}</span>
                 </div>
               </div>
               <button
@@ -478,7 +786,7 @@ const DashboardPage = () => {
                 <div>
                   <p className="text-gray-600">Tickets ouverts</p>
                   <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-600 to-orange-600">
-                    {openTickets}
+                    {openTicketsCount}
                   </p>
                 </div>
                 <div className="h-16 w-16 bg-gradient-to-br from-amber-600 to-orange-600 rounded-2xl flex items-center justify-center text-white">
@@ -488,11 +796,11 @@ const DashboardPage = () => {
               <div className="space-y-3 mb-4">
                 <div className="flex items-center justify-between p-3 bg-amber-50 rounded-xl">
                   <span className="text-sm font-medium text-amber-700">En attente</span>
-                  <span className="text-sm font-bold text-amber-700">{openTickets}</span>
+                  <span className="text-sm font-bold text-amber-700">{openTicketsCount}</span>
                 </div>
                 <div className="flex items-center justify-between p-3 bg-green-50 rounded-xl">
                   <span className="text-sm font-medium text-green-700">Résolus ce mois</span>
-                  <span className="text-sm font-bold text-green-700">8</span>
+                  <span className="text-sm font-bold text-green-700">{resolvedThisMonthCount}</span>
                 </div>
               </div>
               <button
@@ -532,12 +840,12 @@ const DashboardPage = () => {
         <div className="flex items-center justify-between text-sm text-gray-600">
           <div className="flex items-center gap-8">
             <div>
-              <p className="font-medium">Dernière connexion</p>
-              <p className="text-gray-400">Aujourd'hui à 09:45</p>
+              <p className="font-medium">Dernière activité</p>
+              <p className="text-gray-400">{formatRelativeDate(latestActivityDate)}</p>
             </div>
             <div>
               <p className="font-medium">Dernière commande</p>
-              <p className="text-gray-400">Il y a 3 jours</p>
+              <p className="text-gray-400">{formatRelativeDate(lastOrderDate)}</p>
             </div>
           </div>
           <button

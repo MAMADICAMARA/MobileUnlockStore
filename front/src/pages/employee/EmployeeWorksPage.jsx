@@ -74,7 +74,7 @@ const EmployeeWorksPage = () => {
                                         work.status === 'completed' ? 'bg-green-100 text-green-800' :
                                         'bg-gray-100 text-gray-800'
                                     }`}>
-                                        {work.status === 'pending' ? 'En attente' :
+                                        {work.status === 'pending' ? 'en cours' :
                                          work.status === 'completed' ? 'Terminé' : 'Nouveau'}
                                     </span>
                                 </div>

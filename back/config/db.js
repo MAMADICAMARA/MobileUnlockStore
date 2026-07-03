@@ -1,5 +1,6 @@
 // back/config/db.js
 const mongoose = require('mongoose');
+const logger   = require('../utils/logger');
 
 /**
  * Établit la connexion à la base de données MongoDB en utilisant l'URI
@@ -11,7 +12,7 @@ const connectDB = async () => {
     const conn = await mongoose.connect(process.env.MONGO_URI);
     
     // Affiche un message de succès si la connexion est établie
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    logger.log(`MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
     // Affiche une erreur et quitte le processus en cas d'échec
     console.error(`Error: ${error.message}`);

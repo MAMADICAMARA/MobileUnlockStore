@@ -17,11 +17,13 @@ exports.addPayment = async (req, res) => {
       type: type || 'Carte',
       status: 'Réussi',
     });
-    // Créditer le solde de l'utilisateur
-    const user = await User.findById(req.user._id);
-    user.balance += amount;
-    await user.save();
-    res.status(201).json({ payment, newBalance: user.balance });
+    // $inc garantit l'atomicité : pas de race condition si deux paiements arrivent simultanément
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      { $inc: { balance: amount } },
+      { new: true }
+    );
+    res.status(201).json({ payment, newBalance: updatedUser.balance });
   } catch (error) {
     res.status(500).json({ message: 'Erreur lors de l\'ajout du paiement.' });
   }

@@ -1,8 +1,9 @@
 // back/routes/employeeRoutes.js
-const express = require('express');
-const router = express.Router();
+const express  = require('express');
+const router   = express.Router();
+const logger   = require('../utils/logger');
 const { protect } = require('../middleware/authMiddleware');
-const Service = require('../models/Service');
+const Service  = require('../models/Service');
 const User = require('../models/User');
 
 // Middleware pour vérifier si l'utilisateur est un employé
@@ -21,7 +22,7 @@ router.get('/data', protect, checkEmployeeRole, async (req, res) => {
             .select('name email employeeCode role');
             
         if (!employeeData) {
-            console.log('Employé non trouvé');
+            logger.log('Employé non trouvé');
             return res.status(404).json({
                 success: false,
                 error: 'Employé non trouvé'

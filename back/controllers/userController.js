@@ -8,23 +8,7 @@ const bcrypt = require('bcryptjs');
  * @access  Private
  */
 exports.updateProfile = async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id);
-    if (!user) {
-      return res.status(404).json({ message: 'Utilisateur non trouvé' });
-    }
-    user.name = req.body.name || user.name;
-    await user.save();
-    res.json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      balance: user.balance,
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Erreur lors de la mise à jour du profil.' });
-  }
+  return res.status(403).json({ message: 'Modification du nom d utilisateur et de l email non autorisée.' });
 };
 
 /**
@@ -34,6 +18,15 @@ exports.updateProfile = async (req, res) => {
  */
 exports.changePassword = async (req, res) => {
   const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ message: 'Veuillez fournir l ancien et le nouveau mot de passe.' });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ message: 'Le nouveau mot de passe doit contenir au moins 6 caractères.' });
+  }
+
   try {
     const user = await User.findById(req.user._id).select('+password');
     if (!user) {
@@ -49,6 +42,7 @@ exports.changePassword = async (req, res) => {
     await user.save();
     res.json({ message: 'Mot de passe changé avec succès.' });
   } catch (error) {
+    console.error('Erreur changePassword:', error);
     res.status(500).json({ message: 'Erreur lors du changement de mot de passe.' });
   }
 };

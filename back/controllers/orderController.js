@@ -1,8 +1,9 @@
 // back/controllers/orderController.js
-const Order = require('../models/Order');
-const Service = require('../models/Service');
-const User = require('../models/User');
+const Order     = require('../models/Order');
+const Service   = require('../models/Service');
+const User      = require('../models/User');
 const sendEmail = require('../utils/sendEmail');
+const logger    = require('../utils/logger');
 const { randomBytes } = require('crypto');
 
 /**
@@ -221,7 +222,7 @@ exports.placeOrder = async (req, res) => {
           </div>
           
           <p>Votre commande est en cours de traitement. Vous serez notifié par email dès qu'elle sera complétée.</p>
-          <p><strong>Statut actuel:</strong> En attente de traitement</p>
+          <p><strong>Statut actuel:</strong> en cours de traitement</p>
           <p>Merci pour votre confiance.</p>
         `,
       });
@@ -229,7 +230,7 @@ exports.placeOrder = async (req, res) => {
       console.error("❌ Erreur envoi email confirmation:", emailError);
     }
 
-    console.log(`✅ Commande créée: ${transactionId} - ${service.name} (${service.category})`);
+    logger.log(`✅ Commande créée: ${transactionId} - ${service.name} (${service.category})`);
 
     res.status(201).json({
       success: true,
@@ -357,11 +358,11 @@ exports.cancelOrder = async (req, res) => {
       });
     }
 
-    // Seules les commandes en attente peuvent être annulées
+    // Seules les commandes en cours peuvent être annulées
     if (order.status !== 'pending') {
       return res.status(400).json({
         success: false,
-        message: 'Seules les commandes en attente (pending) peuvent être annulées'
+        message: 'Seules les commandes en cours (pending) peuvent être annulées'
       });
     }
 
