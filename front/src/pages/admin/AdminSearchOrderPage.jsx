@@ -38,7 +38,6 @@ const AdminSearchOrderPage = () => {
 
   // ─── Badge statut ─────────────────────────────────────────────────────────
   const statusMap = {
-    'En attente': { bg: 'bg-blue-100',   text: 'text-blue-800',   icon: Clock,         label: 'En attente' },
     'En cours':   { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: Clock,         label: 'En cours' },
     'Terminé':    { bg: 'bg-green-100',  text: 'text-green-800',  icon: CheckCircle,   label: 'Terminé' },
     'Annulé':     { bg: 'bg-red-100',    text: 'text-red-800',    icon: XCircle,       label: 'Annulé' },

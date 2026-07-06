@@ -123,6 +123,9 @@ const AdminLayout = () => {
           <div className="hidden md:flex items-center gap-3 mb-8 p-3 rounded-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-white/5">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
               <Shield className="w-7 h-7 text-white" />
+             <button className='bg-yellow-500'>
+               <div>dark mode</div>
+             </button>
             </div>
             <div>
               <h2 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 text-transparent bg-clip-text">

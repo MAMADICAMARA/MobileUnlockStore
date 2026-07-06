@@ -37,7 +37,7 @@ const ServicesHomePage = () => {
         'Déblocage permanent',
         'Compatible tous réseaux',
         'Sans risque pour le téléphone',
-        'Traitement en 24-48h'
+        'Traitement en intantané'
       ],
       stats: {
         services: 8,
@@ -47,9 +47,9 @@ const ServicesHomePage = () => {
     },
     {
       id: 'Server',
-      title: 'Services Serveur',
-      description: 'Hébergement, VPS et solutions serveur',
-      longDescription: 'Infrastructure robuste et scalable pour vos projets. Configuration sur mesure.',
+      title: 'services serveur',
+      description: 'Services d`\'activation de license',
+      longDescription: 'Activer vos license avec rassurance et instantané',
       icon: Server,
       color: 'from-orange-500 to-red-500',
       bgColor: 'bg-orange-50 dark:bg-orange-900/20',
@@ -69,9 +69,9 @@ const ServicesHomePage = () => {
     },
     {
       id: 'License',
-      title: 'Licences Logicielles',
+      title: 'Credit Logicielles',
       description: 'Licences authentiques pour vos logiciels',
-      longDescription: 'Licences originales aux meilleurs prix. Activation garantie.',
+      longDescription: 'recharger vos compte de logiciel avec rapidité et simplicité',
       icon: Key,
       color: 'from-green-500 to-emerald-500',
       bgColor: 'bg-green-50 dark:bg-green-900/20',
@@ -91,9 +91,9 @@ const ServicesHomePage = () => {
     },
     {
       id: 'Rental',
-      title: 'Location & Remote',
-      description: 'Location de services et assistance à distance',
-      longDescription: 'Solutions flexibles pour vos besoins temporaires. Assistance technique à distance.',
+      title: 'Location',
+      description: 'Location de services ',
+      longDescription: 'Solutions flexibles pour vos besoins temporaires',
       icon: Globe,
       color: 'from-purple-500 to-pink-500',
       bgColor: 'bg-purple-50 dark:bg-purple-900/20',

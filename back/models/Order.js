@@ -28,7 +28,7 @@ const OrderSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: ['en cours', 'En cours', 'Terminé', 'Annulé', 'Remboursé'],
-    default: 'en cours',
+    default: 'En cours',
     index: true,
   },
 

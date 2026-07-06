@@ -2,18 +2,12 @@
 const User     = require('../models/User');
 const jwt      = require('jsonwebtoken');
 const bcrypt   = require('bcryptjs');
-const { authenticator } = require('otplib');
+const { generateSecret, generateURI, verify } = require('otplib');
 const QRCode  = require('qrcode');
-const crypto  = require('crypto');
 
-// ─── Générer un secret base32 compatible TOTP ─────────────────────────────────
-const generateBase32Secret = () => {
-  const chars  = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-  const bytes  = crypto.randomBytes(20);
-  let secret   = '';
-  for (const byte of bytes) secret += chars[byte % 32];
-  return secret;
-};
+// Tolérance de 30s (±1 pas de temps) pour absorber le décalage d'horloge entre
+// le serveur et l'appareil de l'utilisateur — équivalent à l'ancien `window: 1`.
+const TOTP_EPOCH_TOLERANCE = 30;
 
 // ─── Générer le token JWT ─────────────────────────────────────────────────────
 const generateToken = (id, role, email, name, isMaintenanceAllowed) => {
@@ -86,13 +80,13 @@ const login = async (req, res) => {
         return res.status(200).json({ twoFactorRequired: true });
       }
 
-      authenticator.options = { window: 1 };
-      const isValid = authenticator.verify({
-        token:  twoFactorCode,
-        secret: user.twoFactorSecret,
+      const { valid } = await verify({
+        token:          twoFactorCode,
+        secret:         user.twoFactorSecret,
+        epochTolerance: TOTP_EPOCH_TOLERANCE,
       });
 
-      if (!isValid) {
+      if (!valid) {
         return res.status(401).json({ message: 'Code 2FA invalide ou expiré.' });
       }
     }
@@ -144,8 +138,8 @@ const setup2FA = async (req, res) => {
     }
 
     // Générer un secret base32 compatible Google Authenticator
-    const secret  = generateBase32Secret();
-    const otpauth = authenticator.keyuri(user.email, 'MobileUnlockStore', secret);
+    const secret  = generateSecret();
+    const otpauth = generateURI({ issuer: 'MobileUnlockStore', label: user.email, secret });
 
     // Sauvegarder le secret (non encore activé)
     user.twoFactorSecret  = secret;
@@ -181,13 +175,13 @@ const enable2FA = async (req, res) => {
     }
 
     // Vérifier que le code correspond bien au secret
-    authenticator.options = { window: 1 };
-    const isValid = authenticator.verify({
-      token:  String(code),
-      secret: user.twoFactorSecret,
+    const { valid } = await verify({
+      token:          String(code),
+      secret:         user.twoFactorSecret,
+      epochTolerance: TOTP_EPOCH_TOLERANCE,
     });
 
-    if (!isValid) {
+    if (!valid) {
       return res.status(400).json({ success: false, message: 'Code invalide. Vérifiez votre application.' });
     }
 
@@ -214,13 +208,13 @@ const disable2FA = async (req, res) => {
     const user = await User.findById(userId).select('+twoFactorSecret');
     if (!user) return res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
 
-    authenticator.options = { window: 1 };
-    const isValid = authenticator.verify({
-      token:  String(code),
-      secret: user.twoFactorSecret,
+    const { valid } = await verify({
+      token:          String(code),
+      secret:         user.twoFactorSecret,
+      epochTolerance: TOTP_EPOCH_TOLERANCE,
     });
 
-    if (!isValid) {
+    if (!valid) {
       return res.status(400).json({ success: false, message: 'Code invalide.' });
     }
 

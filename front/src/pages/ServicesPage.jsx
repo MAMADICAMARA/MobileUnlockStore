@@ -145,9 +145,9 @@ const [isModalOpen, setIsModalOpen]             = useState(false);
 
   const categories = [
     { id: 'IMEI',    label: 'Services IMEI',      icon: Smartphone, color: 'from-blue-500 to-cyan-500',    description: 'Déblocage et vérification par IMEI' },
-    { id: 'Server',  label: 'Services Serveur',    icon: Server,     color: 'from-orange-500 to-red-500',   description: 'Hébergement et services serveur' },
-    { id: 'Rental',  label: 'Location & Remote',   icon: Wifi,       color: 'from-purple-500 to-pink-500',  description: 'Assistance à distance et location' },
-    { id: 'License', label: 'Licences',            icon: Key,        color: 'from-green-500 to-emerald-500',description: "Licences logicielles et clés d'activation" },
+    { id: 'Server',  label: 'Services Serveur',    icon: Server,     color: 'from-orange-500 to-red-500',   description: 'Les services d\'activation de License' },
+    { id: 'Rental',  label: 'Location & Remote',   icon: Wifi,       color: 'from-purple-500 to-pink-500',  description: 'Les services de location ' },
+    { id: 'License', label: 'Licences',            icon: Key,        color: 'from-green-500 to-emerald-500',description: "Les services de recharge de credit compte" },
   ];
 
   const filterTabs = [
@@ -289,7 +289,7 @@ const [isModalOpen, setIsModalOpen]             = useState(false);
                           <category.icon className="w-8 h-8 text-white" />
                         </div>
                         <div>
-                          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">{category.label}</h2>
+                          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{category.label}</h2>
                           <p className="text-gray-600 dark:text-gray-400 mt-1">
                             {category.description} • {categoryServices.length} services
                           </p>
@@ -367,13 +367,13 @@ const [isModalOpen, setIsModalOpen]             = useState(false);
       {/* Modal solde insuffisant */}
       {showInsufficientModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm">
-          <div className="flex min-h-full items-center justify-center p-4">
+          <div className="flex min-h-full items-center justify-center p-3">
           <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-8 text-center">
             <button
               onClick={() => setShowInsufficientModal(false)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5" />
             </button>
             <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-100 dark:bg-red-900/20 mb-6">
               <AlertCircle className="w-10 h-10 text-red-500" />

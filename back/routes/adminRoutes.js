@@ -309,7 +309,6 @@ router.put('/orders/:id/status', protect, admin, async (req, res) => {
 
     if (order.userId?._id) {
       const statusMessages = {
-        'En attente': { title: '🕐 Commande en attente', message: `Votre commande "${order.serviceId?.name || 'Service'}" est en attente de traitement.`, type: 'info' },
         'En cours':   { title: '⚙️ Commande en cours',   message: `Votre commande "${order.serviceId?.name || 'Service'}" est en cours de traitement.`,  type: 'info' },
         'Terminé':    { title: '✅ Commande terminée',    message: `Votre commande "${order.serviceId?.name || 'Service'}" a été complétée avec succès !`, type: 'success' },
       };
@@ -365,7 +364,7 @@ router.get('/dashboard-stats', protect, admin, async (req, res) => {
 
     const total      = allOrders.length;
     const completed  = allOrders.filter(o => o.status === 'Terminé').length;
-    const inProgress = allOrders.filter(o => o.status === 'En cours' || o.status === 'En attente').length;
+    const inProgress = allOrders.filter(o => o.status === 'En cours').length;
 
     // ✅ amount en priorité (montant réel débité, inclut les licences avec quantité)
     const revenue = allOrders
@@ -866,7 +865,7 @@ module.exports = router;
 
 //     const total      = allOrders.length;
 //     const completed  = allOrders.filter(o => o.status === 'Terminé').length;
-//     const inProgress = allOrders.filter(o => o.status === 'En cours' || o.status === 'En attente').length;
+//     const inProgress = allOrders.filter(o => o.status === 'En cours').length;
 
 //     // ✅ amount en priorité (montant réel débité, inclut les licences avec quantité)
 //     const revenue = allOrders

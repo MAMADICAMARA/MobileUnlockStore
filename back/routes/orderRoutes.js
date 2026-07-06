@@ -41,7 +41,7 @@ router.get('/my', protect, async (req, res) => {
   }
 });
 
-// ✅ GET /api/orders/admin/:id — Détail complet (admin) — DOIT être avant /:id
+// ✅ GET /api/orders/admin/:id — Détail complet (admin)
 router.get('/admin/:id', protect, admin, async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
@@ -110,13 +110,18 @@ router.post('/', protect, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Service non trouvé' });
     }
 
+    // Vérifier que le service est actif
+    if (service.isActive === false) {
+      return res.status(400).json({ success: false, message: 'Ce service n\'est pas disponible actuellement.' });
+    }
+
     // Récupérer l'utilisateur
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
     }
 
-    // ✅ Calcul du montant final — recalculé côté serveur (sécurité)
+    // ✅ Calcul du montant final — toujours recalculé côté serveur (sécurité)
     let finalAmount = service.price;
     let finalQty    = 1;
     if (quantity && Number(quantity) > 1) {
@@ -131,40 +136,40 @@ router.post('/', protect, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Solde insuffisant' });
     }
 
-    // ✅ Corriger le rôle avant save
+    // Corriger le rôle avant save
     fixUserRole(user);
 
     // Déduire le solde
     user.balance = currentBalance - finalAmount;
     await user.save();
 
-    console.log(`💳 Commande: ${user.email} -${finalAmount} FG (qty:${finalQty}) → solde: ${user.balance} FG`);
+    // ✅ Créer la commande SANS userSubmittedDataMetadata
+    // Ce champ cause un CastError car fieldsRequired est stocké en string JSON en base
+    let order;
+    try {
+      order = await Order.create({
+        userId,
+        serviceId,
+        serviceDetails: {
+          name:     service.name,
+          price:    service.price,
+          category: service.category,
+        },
+        userSubmittedData: userSubmittedData || {},
+        amount:   finalAmount,
+        quantity: finalQty,
+        status:   'En cours',
+      });
+    } catch (orderError) {
+      // ✅ COMPENSATION : Order.create() a échoué → restaurer le solde
+      console.error('[ORDER] Compensation — solde restauré. Erreur:', orderError.message);
+      user.balance = currentBalance;
+      fixUserRole(user);
+      await user.save();
+      return res.status(500).json({ success: false, message: 'Erreur lors de la création de la commande.' });
+    }
 
-    // ✅ Construire userSubmittedDataMetadata comme tableau d'objets (schéma Mongoose)
-    const metadata = Array.isArray(service.fieldsRequired)
-      ? service.fieldsRequired
-          .filter(f => f && f.name && f.label)
-          .map(f => ({
-            name:  String(f.name),
-            label: String(f.label),
-            type:  String(f.type || 'text'),
-          }))
-      : [];
-
-    const order = await Order.create({
-      userId,
-      serviceId,
-      serviceDetails: {
-        name:     service.name,
-        price:    service.price,
-        category: service.category,
-      },
-      userSubmittedData:         userSubmittedData || {},
-      userSubmittedDataMetadata: metadata,
-      amount:   finalAmount,
-      quantity: finalQty,
-      status:   'En attente',
-    });
+    console.log(`💳 Commande OK: ${user.email} -${finalAmount} FG (qty:${finalQty}) → solde: ${user.balance} FG`);
 
     // Notification de confirmation
     await createNotification({
@@ -189,6 +194,7 @@ router.post('/', protect, async (req, res) => {
 });
 
 module.exports = router;
+
 
 // // back/routes/orderRoutes.js
 // const express  = require('express');
@@ -332,8 +338,17 @@ module.exports = router;
 
 //     console.log(`💳 Commande: ${user.email} -${finalAmount} FG (qty:${finalQty}) → solde: ${user.balance} FG`);
 
-//     // ✅ Créer la commande SANS userSubmittedDataMetadata
-//     // (ce champ cause un CastError selon le format stocké en base pour fieldsRequired)
+//     // ✅ Construire userSubmittedDataMetadata comme tableau d'objets (schéma Mongoose)
+//     const metadata = Array.isArray(service.fieldsRequired)
+//       ? service.fieldsRequired
+//           .filter(f => f && f.name && f.label)
+//           .map(f => ({
+//             name:  String(f.name),
+//             label: String(f.label),
+//             type:  String(f.type || 'text'),
+//           }))
+//       : [];
+
 //     const order = await Order.create({
 //       userId,
 //       serviceId,
@@ -342,10 +357,11 @@ module.exports = router;
 //         price:    service.price,
 //         category: service.category,
 //       },
-//       userSubmittedData: userSubmittedData || {},
+//       userSubmittedData:         userSubmittedData || {},
+//       userSubmittedDataMetadata: metadata,
 //       amount:   finalAmount,
 //       quantity: finalQty,
-//       status:   'en cours',
+//       status:   'En attente',
 //     });
 
 //     // Notification de confirmation

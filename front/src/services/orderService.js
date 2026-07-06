@@ -82,7 +82,6 @@ export const formatOrderFields = (order) => {
 
 export const formatOrderStatus = (status) => {
   const map = {
-    'En attente': { label: '⏳ En attente', color: 'text-blue-700',   bgColor: 'bg-blue-100',   borderColor: 'border-blue-300' },
     'En cours':   { label: '🔄 En cours',   color: 'text-yellow-700', bgColor: 'bg-yellow-100', borderColor: 'border-yellow-300' },
     'Terminé':    { label: '✅ Terminé',     color: 'text-green-700',  bgColor: 'bg-green-100',  borderColor: 'border-green-300' },
     'Annulé':     { label: '❌ Annulé',      color: 'text-red-700',    bgColor: 'bg-red-100',    borderColor: 'border-red-300' },
