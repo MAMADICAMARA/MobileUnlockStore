@@ -4,6 +4,8 @@ import api from './api';
 const adminService = {
   // ─── UTILISATEURS ────────────────────────────────────────────────────────────
   getAllUsers: () => api.get('/api/admin/users'),
+  toggleUserBlock:         (userId) => api.put(`/api/admin/users/${userId}/toggle-block`),
+  toggleMaintenanceAccess: (userId) => api.put(`/api/admin/users/${userId}/maintenance-access`),
 
   // ─── SERVICES ────────────────────────────────────────────────────────────────
   getAllServices: (params = {}) => {
