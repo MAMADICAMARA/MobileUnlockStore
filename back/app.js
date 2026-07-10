@@ -44,36 +44,47 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // ─── Rate Limiting ───────────────────────────────────────────────────────────
-// Auth — strict : 10 tentatives / 15 minutes par IP (anti brute-force)
-const authLimiter = rateLimit({
+// ✅ Toujours ajouter les headers CORS même sur les réponses 429 — factorisé
+// car réutilisé par les deux limiteurs ci-dessous.
+const rateLimitHandler = (message) => (req, res) => {
+  const allowedOrigins = [
+    'https://mobile-unlock-store.vercel.app',
+    'https://mobileunlockstore-frontend.onrender.com',
+    'http://localhost:5173',
+    'http://localhost:5174',
+  ];
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', 'https://mobile-unlock-store.vercel.app');
+  }
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  res.status(429).json({ success: false, message });
+};
+
+// Inscription — strict : 10 tentatives / 15 minutes par IP (anti spam de comptes)
+const registerLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
-  message: { success: false, message: 'Trop de tentatives de connexion. Réessayez dans 15 minutes.' },
   standardHeaders: true,
   legacyHeaders:   false,
-  // ✅ Toujours ajouter les headers CORS même sur les réponses 429
-  handler: (req, res) => {
-    const allowedOrigins = [
-      'https://mobile-unlock-store.vercel.app',
-      'https://mobileunlockstore-frontend.onrender.com',
-      'http://localhost:5173',
-      'http://localhost:5174',
-    ];
-    const origin = req.headers.origin;
-    if (origin && allowedOrigins.includes(origin)) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-    } else {
-      res.setHeader('Access-Control-Allow-Origin', 'https://mobile-unlock-store.vercel.app');
-    }
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-    res.status(429).json({
-      success: false,
-      message: 'Trop de tentatives de connexion. Réessayez dans 15 minutes.',
-    });
-  },
+  handler: rateLimitHandler('Trop de tentatives d\'inscription. Réessayez dans 15 minutes.'),
   skip: (req) => req.method === 'OPTIONS', // ne pas limiter les preflight
+});
+
+// Connexion — compteur séparé de l'inscription : un mot de passe correct mais
+// un code 2FA saisi deux ou trois fois de travers ne doit pas épuiser le même
+// quota que les tentatives de force brute sur le mot de passe.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  handler: rateLimitHandler('Trop de tentatives de connexion. Réessayez dans 15 minutes.'),
+  skip: (req) => req.method === 'OPTIONS',
 });
 
 // API général — 200 requêtes / minute par IP
@@ -86,10 +97,10 @@ const apiLimiter = rateLimit({
   skip: (req) => req.method === 'OPTIONS',
 });
 
-// ⚠️ Appliquer authLimiter AVANT les routes auth
-app.use('/api/auth/login',    authLimiter);
-app.use('/api/auth/register', authLimiter);
-app.use('/api',               apiLimiter);
+// ⚠️ Appliquer les limiteurs auth AVANT les routes auth
+app.use('/api/auth/register', registerLimiter);
+app.use('/api/auth/login',    loginLimiter);
+app.use('/api',                apiLimiter);
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get('/', (req, res) => {

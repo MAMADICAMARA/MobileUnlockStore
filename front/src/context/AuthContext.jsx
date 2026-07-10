@@ -76,6 +76,7 @@ const AuthProvider = ({ children }) => {
       role:                userRole,
       balance:             userData.balance ?? 0,
       isMaintenanceAllowed: !!userData.isMaintenanceAllowed,
+      twoFactorEnabled:    !!userData.twoFactorEnabled,
     };
     console.log('[AuthContext] Utilisateur créé avec rôle:', userRole);
     localStorage.setItem("user", JSON.stringify(userObject));

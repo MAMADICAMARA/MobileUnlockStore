@@ -1,5 +1,6 @@
 // src/pages/client/ProfilePage.jsx
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import {
   User, Mail, CreditCard, Calendar, Shield, Edit3,
@@ -19,8 +20,11 @@ const fmtCurrency = (n) =>
 // ─── Page Profil ──────────────────────────────────────────────────────────────
 const ProfilePage = () => {
   const { user, login, token } = useAuth();
+  const [searchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab]   = useState('profile');
+  // ✅ Permet d'arriver directement sur l'onglet Sécurité via ?tab=security
+  // (ex: lien "Activer le 2FA" depuis la page de recharge de fonds)
+  const [activeTab, setActiveTab]   = useState(searchParams.get('tab') === 'security' ? 'security' : 'profile');
   const [editing, setEditing]       = useState(false);
   const [loading, setLoading]       = useState(false);
   const [message, setMessage]       = useState({ type: '', text: '' });

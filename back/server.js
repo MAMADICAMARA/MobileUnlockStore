@@ -4,7 +4,6 @@ dotenv.config();
 const express   = require('express');
 const cors      = require('cors');
 const helmet    = require('helmet');
-const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/db');
 
 // Création de l'app
@@ -20,25 +19,8 @@ connectDB().catch(err => {
 app.use(helmet());
 
 // ─── Rate limiting ────────────────────────────────────────────────────────────
-// Brute-force : 10 tentatives max / 15 min sur login et register
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { success: false, message: 'Trop de tentatives. Réessayez dans 15 minutes.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-// Protection générale : 200 req / min sur toute l'API
-const apiLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 200,
-  message: { success: false, message: 'Trop de requêtes. Réessayez dans un instant.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use('/api/auth/login',    authLimiter);
-app.use('/api/auth/register', authLimiter);
-app.use('/api',               apiLimiter);
+// ✅ Géré uniquement dans app.js (évite la double limitation avec des compteurs
+// distincts qui épuisait le quota en partageant login+register sur un seul seau).
 
 // ─── CORS global ─────────────────────────────────────────────────────────────
 app.use(cors({

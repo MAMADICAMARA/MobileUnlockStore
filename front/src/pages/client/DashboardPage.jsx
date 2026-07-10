@@ -1,261 +1,3 @@
-// // src/pages/client/DashboardPage.jsx
-// import { useState, useEffect, useCallback } from 'react';
-// import { Link } from 'react-router-dom';
-// import {
-//   CreditCard, ShoppingBag, Clock, CheckCircle, TrendingUp,
-//   Plus, ArrowRight, RefreshCw, Bell, Shield, Package, Zap
-// } from 'lucide-react';
-// import { useAuth } from '../../hooks/useAuth';
-// import orderService from '../../services/orderService';
-// import TwoFactorSection from '../../components/TwoFactorSection';
-
-// // ─── Utils ────────────────────────────────────────────────────────────────────
-// const fmtCurrency = (n) =>
-//   `${new Intl.NumberFormat('fr-FR').format(n || 0)} FG`;
-
-// const fmtDate = (d) => d
-//   ? new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(d))
-//   : '—';
-
-// const STATUS_CONFIG = {
-//   'En attente': { pill: 'bg-blue-100 text-blue-700',    dot: 'bg-blue-400' },
-//   'En cours':   { pill: 'bg-amber-100 text-amber-700',  dot: 'bg-amber-400' },
-//   'Terminé':    { pill: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-400' },
-//   'Annulé':     { pill: 'bg-red-100 text-red-700',      dot: 'bg-red-400' },
-//   'Remboursé':  { pill: 'bg-purple-100 text-purple-700', dot: 'bg-purple-400' },
-// };
-
-// const StatusBadge = ({ status }) => {
-//   const c = STATUS_CONFIG[status] || { pill: 'bg-gray-100 text-gray-700', dot: 'bg-gray-400' };
-//   return (
-//     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${c.pill}`}>
-//       <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
-//       {status}
-//     </span>
-//   );
-// };
-
-// // ─── Composant KPI ────────────────────────────────────────────────────────────
-// const KpiCard = ({ title, value, icon: Icon, color, to }) => {
-//   const content = (
-//     <div className={`bg-white dark:bg-slate-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow`}>
-//       <div className={`w-10 h-10 ${color} rounded-xl flex items-center justify-center mb-3`}>
-//         <Icon className="w-5 h-5" />
-//       </div>
-//       <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-none mb-1">{value}</p>
-//       <p className="text-xs text-gray-500 dark:text-gray-400">{title}</p>
-//     </div>
-//   );
-//   return to ? <Link to={to}>{content}</Link> : content;
-// };
-
-// // ─── Page principale ──────────────────────────────────────────────────────────
-// const DashboardPage = () => {
-//   const { user, updateUserBalance } = useAuth();
-//   const [orders, setOrders]         = useState([]);
-//   const [loading, setLoading]       = useState(true);
-//   const [refreshing, setRefreshing] = useState(false);
-//   const [twoFaUser, setTwoFaUser]   = useState(null);
-
-//   // Synchroniser l'état 2FA local avec le user de l'AuthContext
-//   useEffect(() => {
-//     if (user) setTwoFaUser(user);
-//   }, [user]);
-
-//   const fetchOrders = useCallback(async (isRefresh = false) => {
-//     isRefresh ? setRefreshing(true) : setLoading(true);
-//     try {
-//       const res  = await orderService.getMyOrders();
-//       const data = res.data?.data ?? res.data ?? [];
-//       setOrders(Array.isArray(data) ? data : []);
-//     } catch (err) {
-//       console.error('Erreur chargement commandes:', err);
-//     } finally {
-//       setLoading(false);
-//       setRefreshing(false);
-//     }
-//   }, []);
-
-//   useEffect(() => {
-//     fetchOrders();
-//     // Polling toutes les 30s pour mise à jour des statuts
-//     const interval = setInterval(() => fetchOrders(), 30000);
-//     return () => clearInterval(interval);
-//   }, [fetchOrders]);
-
-//   // ── Stats ─────────────────────────────────────────────────────────────────
-//   const stats = {
-//     total:     orders.length,
-//     completed: orders.filter(o => o.status === 'Terminé').length,
-//     pending:   orders.filter(o => o.status === 'En attente' || o.status === 'En cours').length,
-//     spent:     orders.filter(o => o.status === 'Terminé')
-//                  .reduce((s, o) => s + (o.amount || o.serviceDetails?.price || 0), 0),
-//   };
-
-//   const recentOrders = [...orders]
-//     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-//     .slice(0, 5);
-
-//   return (
-//     <div className="w-full pb-8 space-y-5">
-
-//       {/* ── Bienvenue ── */}
-//       <div className="flex items-center justify-between">
-//         <div>
-//           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-//             Bonjour, {user?.name?.split(' ')[0] || 'Client'} 👋
-//           </h1>
-//           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-//             {new Intl.DateTimeFormat('fr-FR', { weekday:'long', day:'numeric', month:'long' }).format(new Date())}
-//           </p>
-//         </div>
-//         <button onClick={() => fetchOrders(true)} disabled={refreshing}
-//           className="p-2.5 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:bg-gray-50 transition-colors disabled:opacity-60">
-//           <RefreshCw className={`w-4 h-4 text-gray-500 ${refreshing ? 'animate-spin' : ''}`} />
-//         </button>
-//       </div>
-
-//       {/* ── Carte solde ── */}
-//       <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl p-5 sm:p-6 text-white shadow-lg">
-//         <div className="flex items-center justify-between mb-4">
-//           <div>
-//             <p className="text-blue-100 text-sm font-medium mb-1">Solde disponible</p>
-//             <div className="flex items-baseline gap-2">
-//               <span className="text-3xl sm:text-4xl font-black">{fmtCurrency(user?.balance || 0)}</span>
-//             </div>
-//           </div>
-//           <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
-//             <CreditCard className="w-6 h-6 text-white" />
-//           </div>
-//         </div>
-//         <div className="flex items-center justify-between pt-3 border-t border-white/20">
-//           <p className="text-blue-100 text-xs">Compte : #{user?.id?.slice(-8) || 'N/A'}</p>
-//           <Link to="/client/add-funds"
-//             className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-xl text-white text-xs font-semibold transition-colors">
-//             <Plus className="w-3.5 h-3.5" /> Recharger
-//           </Link>
-//         </div>
-//       </div>
-
-//       {/* ── KPIs ── */}
-//       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-//         <KpiCard title="Total commandes" value={stats.total}
-//           icon={ShoppingBag} color="bg-blue-100 dark:bg-blue-900/30 text-blue-600"
-//           to="/client/orders" />
-//         <KpiCard title="Terminées" value={stats.completed}
-//           icon={CheckCircle} color="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600"
-//           to="/client/orders" />
-//         <KpiCard title="En cours" value={stats.pending}
-//           icon={Clock} color="bg-amber-100 dark:bg-amber-900/30 text-amber-600"
-//           to="/client/orders" />
-//         <KpiCard title="Total dépensé" value={fmtCurrency(stats.spent)}
-//           icon={TrendingUp} color="bg-purple-100 dark:bg-purple-900/30 text-purple-600" />
-//       </div>
-
-//       {/* ── Actions rapides ── */}
-//       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-//         {[
-//           { to: '/client/services',  icon: Package, label: 'Nos services',   color: 'from-blue-500 to-indigo-600' },
-//           { to: '/client/add-funds', icon: CreditCard, label: 'Recharger',   color: 'from-emerald-500 to-teal-600' },
-//           { to: '/client/orders',    icon: ShoppingBag, label: 'Commandes',  color: 'from-purple-500 to-pink-600' },
-//         ].map(({ to, icon: Icon, label, color }) => (
-//           <Link key={to} to={to}
-//             className={`bg-gradient-to-br ${color} rounded-2xl p-4 text-white shadow-sm hover:shadow-md transition-shadow flex flex-col gap-2`}>
-//             <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
-//               <Icon className="w-5 h-5" />
-//             </div>
-//             <div className="flex items-center justify-between">
-//               <span className="text-sm font-semibold">{label}</span>
-//               <ArrowRight className="w-4 h-4 opacity-70" />
-//             </div>
-//           </Link>
-//         ))}
-//       </div>
-
-//       {/* ── Commandes récentes ── */}
-//       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
-//         <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-//           <h2 className="text-base font-bold text-gray-900 dark:text-white">Commandes récentes</h2>
-//           <Link to="/client/orders"
-//             className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium flex items-center gap-1">
-//             Voir tout <ArrowRight className="w-3.5 h-3.5" />
-//           </Link>
-//         </div>
-
-//         {loading ? (
-//           <div className="flex items-center justify-center py-12">
-//             <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-//           </div>
-//         ) : recentOrders.length === 0 ? (
-//           <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-6">
-//             <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center">
-//               <ShoppingBag className="w-6 h-6 text-gray-400" />
-//             </div>
-//             <p className="text-gray-500 dark:text-gray-400 text-sm">Aucune commande pour le moment</p>
-//             <Link to="/client/services"
-//               className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors">
-//               Explorer les services
-//             </Link>
-//           </div>
-//         ) : (
-//           <div className="divide-y divide-gray-50 dark:divide-gray-700/50">
-//             {recentOrders.map((order) => (
-//               <div key={order._id} className="flex items-center gap-3 px-4 sm:px-5 py-3.5">
-//                 <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center flex-shrink-0">
-//                   <Zap className="w-4 h-4 text-white" />
-//                 </div>
-//                 <div className="flex-1 min-w-0">
-//                   <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-//                     {order.serviceId?.name || order.serviceDetails?.name || 'Service'}
-//                   </p>
-//                   <p className="text-xs text-gray-400 mt-0.5">{fmtDate(order.createdAt)}</p>
-//                 </div>
-//                 <div className="flex flex-col items-end gap-1 flex-shrink-0">
-//                   <span className="text-sm font-bold text-gray-900 dark:text-white">
-//                     {fmtCurrency(order.amount || order.serviceDetails?.price || 0)}
-//                   </span>
-//                   <StatusBadge status={order.status} />
-//                 </div>
-//               </div>
-//             ))}
-//           </div>
-//         )}
-//       </div>
-
-//       {/* ── Notifications rapides ── */}
-//       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 sm:p-5">
-//         <div className="flex items-center gap-3 mb-3">
-//           <Bell className="w-5 h-5 text-blue-500" />
-//           <h2 className="text-base font-bold text-gray-900 dark:text-white">Informations</h2>
-//         </div>
-//         <div className="space-y-2">
-//           <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-//             <Shield className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
-//             <p className="text-xs text-blue-700 dark:text-blue-300">
-//               Votre solde est sécurisé. Toutes les transactions sont chiffrées.
-//             </p>
-//           </div>
-//           {stats.pending > 0 && (
-//             <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl">
-//               <Clock className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-//               <p className="text-xs text-amber-700 dark:text-amber-300">
-//                 Vous avez {stats.pending} commande{stats.pending > 1 ? 's' : ''} en cours de traitement.
-//               </p>
-//             </div>
-//           )}
-//         </div>
-//       </div>
-
-//       {/* ✅ Section 2FA — fonctionnelle (remplace le faux bloc "2FA actif") */}
-//       <TwoFactorSection
-//         user={twoFaUser}
-//         onStatusChange={(update) => setTwoFaUser(prev => ({ ...prev, ...update }))}
-//       />
-//     </div>
-//   );
-// };
-
-// export default DashboardPage;
 
 // src/pages/client/DashboardPage.jsx
 import { useState, useEffect } from 'react';
@@ -540,7 +282,7 @@ const DashboardPage = () => {
             </div>
 
             {/* Sélecteur de période */}
-            <div className="bg-white rounded-xl shadow-lg p-1 inline-flex">
+            <div className="bg-white rounded-xl shadow-lg p-1 inline-flex sm:text-xl">
               {['week', 'month', 'year'].map((period) => (
                 <button
                   key={period}
@@ -569,17 +311,17 @@ const DashboardPage = () => {
           <div className="relative flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
             <div className="flex items-center gap-4">
               <div className="h-16 w-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
-                <WalletIcon className="h-8 w-8" />
+                <WalletIcon className="h-8 w-8  sm:h-5 sm:w-5" />
               </div>
               <div>
                 <p className="text-green-100 text-lg font-medium mb-1">Solde disponible</p>
-                <p className="text-5xl font-black tracking-tight">
+                <p className="text-5xl font-black tracking-tight sm:text-xl">
                   {formatPrice(user?.balance)}
                 </p>
               </div>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-3 sm:gap-2">
               <button
                 onClick={() => handleNavigate('/client/add-funds')}
                 className="bg-white/20 backdrop-blur-sm px-6 py-3 rounded-xl font-semibold hover:bg-white/30 transition-all duration-300 flex items-center gap-2"
@@ -861,3 +603,263 @@ const DashboardPage = () => {
 };
 
 export default DashboardPage;
+
+
+// // src/pages/client/DashboardPage.jsx
+// import { useState, useEffect, useCallback } from 'react';
+// import { Link } from 'react-router-dom';
+// import {
+//   CreditCard, ShoppingBag, Clock, CheckCircle, TrendingUp,
+//   Plus, ArrowRight, RefreshCw, Bell, Shield, Package, Zap
+// } from 'lucide-react';
+// import { useAuth } from '../../hooks/useAuth';
+// import orderService from '../../services/orderService';
+// import TwoFactorSection from '../../components/TwoFactorSection';
+
+// // ─── Utils ────────────────────────────────────────────────────────────────────
+// const fmtCurrency = (n) =>
+//   `${new Intl.NumberFormat('fr-FR').format(n || 0)} FG`;
+
+// const fmtDate = (d) => d
+//   ? new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(d))
+//   : '—';
+
+// const STATUS_CONFIG = {
+//   'En attente': { pill: 'bg-blue-100 text-blue-700',    dot: 'bg-blue-400' },
+//   'En cours':   { pill: 'bg-amber-100 text-amber-700',  dot: 'bg-amber-400' },
+//   'Terminé':    { pill: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-400' },
+//   'Annulé':     { pill: 'bg-red-100 text-red-700',      dot: 'bg-red-400' },
+//   'Remboursé':  { pill: 'bg-purple-100 text-purple-700', dot: 'bg-purple-400' },
+// };
+
+// const StatusBadge = ({ status }) => {
+//   const c = STATUS_CONFIG[status] || { pill: 'bg-gray-100 text-gray-700', dot: 'bg-gray-400' };
+//   return (
+//     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${c.pill}`}>
+//       <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+//       {status}
+//     </span>
+//   );
+// };
+
+// // ─── Composant KPI ────────────────────────────────────────────────────────────
+// const KpiCard = ({ title, value, icon: Icon, color, to }) => {
+//   const content = (
+//     <div className={`bg-white dark:bg-slate-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow`}>
+//       <div className={`w-10 h-10 ${color} rounded-xl flex items-center justify-center mb-3`}>
+//         <Icon className="w-5 h-5" />
+//       </div>
+//       <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-none mb-1">{value}</p>
+//       <p className="text-xs text-gray-500 dark:text-gray-400">{title}</p>
+//     </div>
+//   );
+//   return to ? <Link to={to}>{content}</Link> : content;
+// };
+
+// // ─── Page principale ──────────────────────────────────────────────────────────
+// const DashboardPage = () => {
+//   const { user, updateUserBalance } = useAuth();
+//   const [orders, setOrders]         = useState([]);
+//   const [loading, setLoading]       = useState(true);
+//   const [refreshing, setRefreshing] = useState(false);
+//   const [twoFaUser, setTwoFaUser]   = useState(null);
+
+//   // Synchroniser l'état 2FA local avec le user de l'AuthContext
+//   useEffect(() => {
+//     if (user) setTwoFaUser(user);
+//   }, [user]);
+
+//   const fetchOrders = useCallback(async (isRefresh = false) => {
+//     isRefresh ? setRefreshing(true) : setLoading(true);
+//     try {
+//       const res  = await orderService.getMyOrders();
+//       const data = res.data?.data ?? res.data ?? [];
+//       setOrders(Array.isArray(data) ? data : []);
+//     } catch (err) {
+//       console.error('Erreur chargement commandes:', err);
+//     } finally {
+//       setLoading(false);
+//       setRefreshing(false);
+//     }
+//   }, []);
+
+//   useEffect(() => {
+//     fetchOrders();
+//     // Polling toutes les 30s pour mise à jour des statuts
+//     const interval = setInterval(() => fetchOrders(), 30000);
+//     return () => clearInterval(interval);
+//   }, [fetchOrders]);
+
+//   // ── Stats ─────────────────────────────────────────────────────────────────
+//   const stats = {
+//     total:     orders.length,
+//     completed: orders.filter(o => o.status === 'Terminé').length,
+//     pending:   orders.filter(o => o.status === 'En attente' || o.status === 'En cours').length,
+//     spent:     orders.filter(o => o.status === 'Terminé')
+//                  .reduce((s, o) => s + (o.amount || o.serviceDetails?.price || 0), 0),
+//   };
+
+//   const recentOrders = [...orders]
+//     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+//     .slice(0, 5);
+
+//   return (
+//     <div className="w-full pb-8 space-y-5">
+
+//       {/* ── Bienvenue ── */}
+//       <div className="flex items-center justify-between">
+//         <div>
+//           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+//             Bonjour, {user?.name?.split(' ')[0] || 'Client'} 👋
+//           </h1>
+//           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+//             {new Intl.DateTimeFormat('fr-FR', { weekday:'long', day:'numeric', month:'long' }).format(new Date())}
+//           </p>
+//         </div>
+//         <button onClick={() => fetchOrders(true)} disabled={refreshing}
+//           className="p-2.5 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:bg-gray-50 transition-colors disabled:opacity-60">
+//           <RefreshCw className={`w-4 h-4 text-gray-500 ${refreshing ? 'animate-spin' : ''}`} />
+//         </button>
+//       </div>
+
+//       {/* ── Carte solde ── */}
+//       <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl p-5 sm:p-6 text-white shadow-lg">
+//         <div className="flex items-center justify-between mb-4">
+//           <div>
+//             <p className="text-blue-100 text-sm font-medium mb-1">Solde disponible</p>
+//             <div className="flex items-baseline gap-2">
+//               <span className="text-3xl sm:text-4xl font-black">{fmtCurrency(user?.balance || 0)}</span>
+//             </div>
+//           </div>
+//           <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+//             <CreditCard className="w-6 h-6 text-white" />
+//           </div>
+//         </div>
+//         <div className="flex items-center justify-between pt-3 border-t border-white/20">
+//           <p className="text-blue-100 text-xs">Compte : #{user?.id?.slice(-8) || 'N/A'}</p>
+//           <Link to="/client/add-funds"
+//             className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-xl text-white text-xs font-semibold transition-colors">
+//             <Plus className="w-3.5 h-3.5" /> Recharger
+//           </Link>
+//         </div>
+//       </div>
+
+//       {/* ── KPIs ── */}
+//       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+//         <KpiCard title="Total commandes" value={stats.total}
+//           icon={ShoppingBag} color="bg-blue-100 dark:bg-blue-900/30 text-blue-600"
+//           to="/client/orders" />
+//         <KpiCard title="Terminées" value={stats.completed}
+//           icon={CheckCircle} color="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600"
+//           to="/client/orders" />
+//         <KpiCard title="En cours" value={stats.pending}
+//           icon={Clock} color="bg-amber-100 dark:bg-amber-900/30 text-amber-600"
+//           to="/client/orders" />
+//         <KpiCard title="Total dépensé" value={fmtCurrency(stats.spent)}
+//           icon={TrendingUp} color="bg-purple-100 dark:bg-purple-900/30 text-purple-600" />
+//       </div>
+
+//       {/* ── Actions rapides ── */}
+//       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+//         {[
+//           { to: '/client/services',  icon: Package, label: 'Nos services',   color: 'from-blue-500 to-indigo-600' },
+//           { to: '/client/add-funds', icon: CreditCard, label: 'Recharger',   color: 'from-emerald-500 to-teal-600' },
+//           { to: '/client/orders',    icon: ShoppingBag, label: 'Commandes',  color: 'from-purple-500 to-pink-600' },
+//         ].map(({ to, icon: Icon, label, color }) => (
+//           <Link key={to} to={to}
+//             className={`bg-gradient-to-br ${color} rounded-2xl p-4 text-white shadow-sm hover:shadow-md transition-shadow flex flex-col gap-2`}>
+//             <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
+//               <Icon className="w-5 h-5" />
+//             </div>
+//             <div className="flex items-center justify-between">
+//               <span className="text-sm font-semibold">{label}</span>
+//               <ArrowRight className="w-4 h-4 opacity-70" />
+//             </div>
+//           </Link>
+//         ))}
+//       </div>
+
+//       {/* ── Commandes récentes ── */}
+//       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+//         <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+//           <h2 className="text-base font-bold text-gray-900 dark:text-white">Commandes récentes</h2>
+//           <Link to="/client/orders"
+//             className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium flex items-center gap-1">
+//             Voir tout <ArrowRight className="w-3.5 h-3.5" />
+//           </Link>
+//         </div>
+
+//         {loading ? (
+//           <div className="flex items-center justify-center py-12">
+//             <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+//           </div>
+//         ) : recentOrders.length === 0 ? (
+//           <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-6">
+//             <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center">
+//               <ShoppingBag className="w-6 h-6 text-gray-400" />
+//             </div>
+//             <p className="text-gray-500 dark:text-gray-400 text-sm">Aucune commande pour le moment</p>
+//             <Link to="/client/services"
+//               className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors">
+//               Explorer les services
+//             </Link>
+//           </div>
+//         ) : (
+//           <div className="divide-y divide-gray-50 dark:divide-gray-700/50">
+//             {recentOrders.map((order) => (
+//               <div key={order._id} className="flex items-center gap-3 px-4 sm:px-5 py-3.5">
+//                 <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center flex-shrink-0">
+//                   <Zap className="w-4 h-4 text-white" />
+//                 </div>
+//                 <div className="flex-1 min-w-0">
+//                   <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+//                     {order.serviceId?.name || order.serviceDetails?.name || 'Service'}
+//                   </p>
+//                   <p className="text-xs text-gray-400 mt-0.5">{fmtDate(order.createdAt)}</p>
+//                 </div>
+//                 <div className="flex flex-col items-end gap-1 flex-shrink-0">
+//                   <span className="text-sm font-bold text-gray-900 dark:text-white">
+//                     {fmtCurrency(order.amount || order.serviceDetails?.price || 0)}
+//                   </span>
+//                   <StatusBadge status={order.status} />
+//                 </div>
+//               </div>
+//             ))}
+//           </div>
+//         )}
+//       </div>
+
+//       {/* ── Notifications rapides ── */}
+//       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 sm:p-5">
+//         <div className="flex items-center gap-3 mb-3">
+//           <Bell className="w-5 h-5 text-blue-500" />
+//           <h2 className="text-base font-bold text-gray-900 dark:text-white">Informations</h2>
+//         </div>
+//         <div className="space-y-2">
+//           <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+//             <Shield className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+//             <p className="text-xs text-blue-700 dark:text-blue-300">
+//               Votre solde est sécurisé. Toutes les transactions sont chiffrées.
+//             </p>
+//           </div>
+//           {stats.pending > 0 && (
+//             <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl">
+//               <Clock className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+//               <p className="text-xs text-amber-700 dark:text-amber-300">
+//                 Vous avez {stats.pending} commande{stats.pending > 1 ? 's' : ''} en cours de traitement.
+//               </p>
+//             </div>
+//           )}
+//         </div>
+//       </div>
+
+//       {/* ✅ Section 2FA — fonctionnelle (remplace le faux bloc "2FA actif") */}
+//       <TwoFactorSection
+//         user={twoFaUser}
+//         onStatusChange={(update) => setTwoFaUser(prev => ({ ...prev, ...update }))}
+//       />
+//     </div>
+//   );
+// };
+
+// export default DashboardPage;

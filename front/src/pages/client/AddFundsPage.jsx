@@ -1,15 +1,26 @@
 // src/pages/client/AddFundsPage.jsx
 import { useState } from 'react';
-import { CreditCard, DollarSign, History, MessageCircle, Shield, CheckCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { CreditCard, DollarSign, History, MessageCircle, Shield, CheckCircle, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+
+// Montant minimum autorisé pour une recharge de compte (en FG)
+const MIN_AMOUNT = 100000;
+
+const formatFG = (n) => new Intl.NumberFormat('fr-FR').format(n || 0);
 
 const AddFundsPage = () => {
   const { user } = useAuth();
-  const [amount, setAmount] = useState(100);
+  const navigate = useNavigate();
+  const [amount, setAmount] = useState(MIN_AMOUNT);
   const [selectedMethod, setSelectedMethod] = useState('admin');
   const [submitted, setSubmitted] = useState(false);
+  const [show2FAPrompt, setShow2FAPrompt] = useState(false);
 
-  const predefinedAmounts = [50, 100, 250, 500, 1000];
+  const predefinedAmounts = [100000, 200000, 500000, 1000000, 2000000];
+
+  // Chemin vers l'onglet Sécurité du profil, selon l'espace (client ou employé)
+  const securityProfilePath = `/${user?.role === 'utilisateur-employer' ? 'employee' : 'client'}/profile?tab=security`;
 
   const paymentMethods = [
     { id: 'admin', name: 'Contact Admin',     description: 'Contactez admin via WhatsApp pour recharge manuelle', icon: MessageCircle },
@@ -19,10 +30,20 @@ const AddFundsPage = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (amount <= 0) { alert('Veuillez entrer un montant valide'); return; }
+
+    // ✅ Le 2FA doit être activé avant toute recharge — sécurité du compte
+    if (!user?.twoFactorEnabled) {
+      setShow2FAPrompt(true);
+      return;
+    }
+
+    if (!amount || Number(amount) < MIN_AMOUNT) {
+      alert(`Le montant minimum autorisé est de ${formatFG(MIN_AMOUNT)} FG.`);
+      return;
+    }
     if (selectedMethod === 'admin') {
       const msg = encodeURIComponent(
-        `Bonjour Admin, je souhaite ajouter ${amount} FG à mon compte (ID: ${user?._id?.slice(-8)}). Solde actuel: ${user?.balance || 0} FG.`
+        `Bonjour Admin, je souhaite ajouter ${formatFG(amount)} FG à mon compte (ID: ${user?._id?.slice(-8)}). Solde actuel: ${formatFG(user?.balance)} FG.`
       );
       window.open(`https://wa.me/224611066809?text=${msg}`, '_blank');
       setSubmitted(true);
@@ -63,7 +84,7 @@ const AddFundsPage = () => {
               </div>
               <div className="flex items-baseline gap-1 mb-1">
                 <span className="text-3xl sm:text-5xl font-black leading-none">
-                  {(user?.balance || 0).toFixed(2)}
+                  {formatFG(user?.balance)}
                 </span>
                 <span className="text-xl sm:text-2xl font-bold">FG</span>
               </div>
@@ -132,7 +153,7 @@ const AddFundsPage = () => {
                           : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200'
                       }`}
                     >
-                      {value} FG
+                      {formatFG(value)} FG
                     </button>
                   ))}
                 </div>
@@ -146,8 +167,8 @@ const AddFundsPage = () => {
                 <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5">
                   <input
                     type="number"
-                    min="1"
-                    max="10000"
+                    min={MIN_AMOUNT}
+                    step="1000"
                     value={amount}
                     onChange={(e) => setAmount(Number(e.target.value))}
                     className="flex-1 bg-transparent focus:outline-none dark:text-white text-sm"
@@ -155,6 +176,9 @@ const AddFundsPage = () => {
                   />
                   <span className="font-bold text-gray-700 dark:text-white text-sm">FG</span>
                 </div>
+                <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
+                  Montant minimum : {formatFG(MIN_AMOUNT)} FG
+                </p>
               </div>
 
               {/* Méthode de paiement */}
@@ -198,10 +222,29 @@ const AddFundsPage = () => {
               <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 flex items-baseline justify-between min-w-0 shadow-sm">
                 <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">Montant à recharger</span>
                 <span className="flex items-baseline gap-1 text-lg font-black text-blue-600 dark:text-blue-400 min-w-0 break-words">
-                  {Number(amount).toFixed(2)}
+                  {formatFG(amount)}
                   <span className="text-sm font-semibold">FG</span>
                 </span>
               </div>
+
+              {/* Alerte 2FA requis */}
+              {show2FAPrompt && (
+                <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl space-y-2">
+                  <div className="flex items-start gap-2">
+                    <ShieldAlert className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-amber-700 dark:text-amber-400">
+                      Pour votre sécurité, activez d'abord l'authentification à deux facteurs (2FA) avant de recharger votre compte.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate(securityProfilePath)}
+                    className="w-full py-2 px-4 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Shield className="w-3.5 h-3.5" /> Activer le 2FA
+                  </button>
+                </div>
+              )}
 
               {/* Succès */}
               {submitted && (
@@ -217,7 +260,7 @@ const AddFundsPage = () => {
                 className="w-full py-3 px-6 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg font-bold transition-all flex items-center justify-center gap-2 text-sm"
               >
                 <DollarSign className="w-5 h-5" />
-                Recharger {Number(amount).toFixed(2)} FG
+                Recharger {formatFG(amount)} FG
               </button>
             </form>
 

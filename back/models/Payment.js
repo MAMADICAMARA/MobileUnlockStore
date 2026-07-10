@@ -10,6 +10,9 @@ const PaymentSchema = new mongoose.Schema({
   amount: {
     type: Number,
     required: true,
+    // Filet de sécurité au niveau schéma — doit rester synchronisé avec
+    // MIN_PAYMENT_AMOUNT dans back/controllers/paymentController.js
+    min: [100000, 'Le montant minimum autorisé est de 100 000 FG.'],
   },
   status: {
     type: String,
