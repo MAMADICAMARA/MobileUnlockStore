@@ -71,6 +71,17 @@ router.put('/admin/:id', protect, admin, async (req, res) => {
       .populate('serviceId', 'name category price deliveryTime fieldsRequired');
 
     if (!order) return res.status(404).json({ success: false, message: 'Commande non trouvée' });
+
+    // ✅ Notifier le client dès que des identifiants/données de livraison sont envoyés
+    if (deliveryData && Object.keys(deliveryData).length > 0 && order.userId?._id) {
+      await createNotification({
+        userId:  order.userId._id,
+        title:   '🔑 Identifiants disponibles',
+        message: `Les identifiants pour votre commande "${order.serviceDetails?.name || 'Service'}" sont prêts. Consultez votre commande pour les récupérer.`,
+        type:    'success',
+      });
+    }
+
     res.json({ success: true, data: order });
   } catch (error) {
     console.error('Erreur mise à jour commande:', error);

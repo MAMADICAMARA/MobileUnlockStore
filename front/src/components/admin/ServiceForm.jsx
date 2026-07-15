@@ -241,7 +241,7 @@
 //       </div>
 
 //       {/* ── Champs dynamiques par catégorie ── */}
-//       {selectedCategory && categoryFields[selectedCategory] && (
+//       {selectedCategory && categoryFields[selectedCategory]?.length > 0 && (
 //         <div className="border-t border-gray-200 pt-6">
 //           <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
 //             <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
@@ -344,9 +344,32 @@
 // src/components/admin/ServiceForm.jsx
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { HelpCircle, AlertCircle, Plus, Trash2, Upload, Image, X } from 'lucide-react';
+import {
+  HelpCircle, AlertCircle, Plus, Trash2, Image, X,
+  Info, Tag, Clock, FileText, ListChecks, Sparkles, Power,
+} from 'lucide-react';
 
-const ServiceForm = ({ service, onSubmit, isLoading }) => {
+// ─── Sous-composant : en-tête de section réutilisable ──────────────────────────
+const SectionHeader = ({ icon: Icon, title, hint }) => (
+  <div className="flex items-center gap-2 mb-3">
+    <Icon className="w-4 h-4 text-blue-500 flex-shrink-0" />
+    <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{title}</h3>
+    {hint && <span className="text-xs text-slate-400 font-normal">{hint}</span>}
+  </div>
+);
+
+// ─── Champs générés automatiquement selon la catégorie ─────────────────────────
+// fieldsRequired mélange, une fois enregistré, ces champs "standards" (régénérés
+// à chaque sauvegarde depuis les cases à cocher) et les vrais champs personnalisés
+// ajoutés par l'admin. Il faut les distinguer pour ne pas les dupliquer en édition.
+const STANDARD_FIELD_NAMES = {
+  IMEI:   ['imei', 'serialNumber', 'imageUrl'],
+  Server: ['username', 'email'],
+  Credit: ['email', 'quantity'],
+  Rental: [],
+};
+
+const ServiceForm = ({ service, onSubmit, isLoading, onCancel }) => {
   const [customFields, setCustomFields] = useState([]);
   const [imagePreview, setImagePreview] = useState(service?.imageUrl || '');
   const [imageFile, setImageFile] = useState(null); // non utilisé mais gardé
@@ -375,8 +398,6 @@ const ServiceForm = ({ service, onSubmit, isLoading }) => {
       emailRequired:          service.metadata?.serveur?.requireEmail ?? true,
       maxQuantity:            service.metadata?.licences?.maxQuantity || 1,
       autoGenerateKey:        service.metadata?.licences?.autoGenerateKey ?? false,
-      defaultDuration:        service.metadata?.remote?.defaultDuration || '24h',
-      autoGenerateCredentials:service.metadata?.remote?.autoGenerateCredentials ?? false,
     } : {
       name: '', description: '', price: '', category: '', deliveryTime: '', instructions: '',
       active: true,
@@ -384,19 +405,19 @@ const ServiceForm = ({ service, onSubmit, isLoading }) => {
       imeiRequired: true, snRequired: false, imageRequired: false,
       usernameRequired: true, emailRequired: true,
       maxQuantity: 1, autoGenerateKey: false,
-      defaultDuration: '24h', autoGenerateCredentials: false,
     }
   });
 
   const selectedCategory = watch('category');
 
   useEffect(() => {
-    if (service?.fieldsRequired) setCustomFields(service.fieldsRequired);
+    if (!service?.fieldsRequired) return;
+    // ✅ Ne charger que les vrais champs personnalisés : les champs standards de
+    // la catégorie sont régénérés séparément depuis les cases à cocher au submit,
+    // les recharger ici les dupliquerait à chaque nouvelle sauvegarde.
+    const standardNames = STANDARD_FIELD_NAMES[service.category] || [];
+    setCustomFields(service.fieldsRequired.filter(f => !standardNames.includes(f.name)));
   }, [service]);
-
-  useEffect(() => {
-    if (selectedCategory) setCustomFields([]);
-  }, [selectedCategory]);
 
   // Gestion de l'upload d'image
   const handleImageUpload = (e) => {
@@ -439,10 +460,6 @@ const ServiceForm = ({ service, onSubmit, isLoading }) => {
       { name: 'maxQuantity',   label: 'Quantité maximale par commande', type: 'number', placeholder: 'ex: 50', min: 1, max: 1000 },
       { name: 'autoGenerateKey', label: 'Générer les clés automatiquement', type: 'checkbox' },
     ],
-    'Rental': [
-      { name: 'defaultDuration', label: 'Durée par défaut', type: 'select', options: [{ value: '1h', label: '1 heure' }, { value: '24h', label: '24 heures' }, { value: '7j', label: '7 jours' }] },
-      { name: 'autoGenerateCredentials', label: 'Générer identifiants automatiquement', type: 'checkbox' },
-    ],
   };
 
   const addCustomField = () => {
@@ -477,13 +494,11 @@ const ServiceForm = ({ service, onSubmit, isLoading }) => {
       if (data.maxQuantity > 1) fieldsRequired.push({ name: 'quantity', label: 'Quantité', type: 'number', required: true, defaultValue: 1, helpText: `Maximum ${data.maxQuantity} crédits` });
     }
 
-    if (backendCategory === 'Rental') {
-      fieldsRequired.push({ name: 'duration', label: 'Durée souhaitée', type: 'select', required: true, options: ['1h', '24h', '7j'], defaultValue: data.defaultDuration || '24h' });
-      if (!data.autoGenerateCredentials) fieldsRequired.push({ name: 'preferredTool', label: 'Outil préféré', type: 'select', required: false, options: ['AnyDesk', 'TeamViewer', 'Chrome Remote', 'Autre'] });
-    }
-
+    // ✅ Filet de sécurité : ignore tout champ personnalisé dont le nom entrerait
+    // en collision avec un champ standard déjà poussé ci-dessus pour cette catégorie.
+    const standardNames = STANDARD_FIELD_NAMES[backendCategory] || [];
     customFields.forEach(field => {
-      if (field.name && field.label) {
+      if (field.name && field.label && !standardNames.includes(field.name)) {
         fieldsRequired.push({ name: field.name, label: field.label, type: field.type || 'text', required: field.required !== false, placeholder: field.placeholder || '' });
       }
     });
@@ -492,7 +507,6 @@ const ServiceForm = ({ service, onSubmit, isLoading }) => {
       imei:     { requireImei: data.imeiRequired, requireSn: data.snRequired, requireImage: data.imageRequired },
       serveur:  { requireUsername: data.usernameRequired, requireEmail: data.emailRequired },
       licences: { maxQuantity: data.maxQuantity || 1, autoGenerateKey: data.autoGenerateKey },
-      remote:   { defaultDuration: data.defaultDuration || '24h', autoGenerateCredentials: data.autoGenerateCredentials },
     };
 
     onSubmit({
@@ -509,79 +523,111 @@ const ServiceForm = ({ service, onSubmit, isLoading }) => {
     });
   };
 
+  const inputClass = 'mt-1.5 block w-full px-3.5 py-2.5 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow';
+
   return (
-    <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-5">
 
-      {/* ── Champs communs ── */}
-      <div className="grid grid-cols-1 gap-6">
+      {/* ── Informations générales ── */}
+      <div className="bg-gray-50/60 dark:bg-slate-900/30 border border-gray-100 dark:border-slate-700 rounded-2xl p-4 sm:p-5">
+        <SectionHeader icon={Info} title="Informations générales" />
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Nom du service <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              {...register('name', { required: 'Le nom est obligatoire' })}
+              placeholder="Ex: Déblocage IMEI, Crédit TFM Tool Pro..."
+              className={inputClass}
+            />
+            {errors.name && <p className="mt-1.5 text-sm text-red-600 dark:text-red-400 flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />{errors.name.message}</p>}
+          </div>
 
-        {/* Nom */}
-        <div>
-          <label className="block text-sm font-medium text-gray-900">
-            Nom du service <span className="text-red-500">*</span>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Description <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              {...register('description', { required: 'La description est obligatoire' })}
+              rows={3}
+              placeholder="Décrivez le service en quelques phrases claires et attractives..."
+              className={`${inputClass} resize-y`}
+            />
+            {errors.description && <p className="mt-1.5 text-sm text-red-600 dark:text-red-400 flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />{errors.description.message}</p>}
+          </div>
+
+          {/* Actif */}
+          <label className="flex items-center gap-2.5 p-3 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl cursor-pointer">
+            <input
+              type="checkbox"
+              {...register('active')}
+              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 flex-shrink-0"
+            />
+            <Power className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+            <span className="text-sm text-gray-700 dark:text-gray-300">Service actif <span className="text-gray-400">(visible par les clients)</span></span>
           </label>
-          <input
-            type="text"
-            {...register('name', { required: 'Le nom est obligatoire' })}
-            placeholder="Ex: Déblocage IMEI, Crédit TFM Tool Pro..."
-            className="mt-1 block w-full rounded-lg border-gray-300 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 placeholder-gray-400"
-          />
-          {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>}
         </div>
+      </div>
 
-        {/* Description */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Description <span className="text-red-500">*</span>
-          </label>
-          <textarea
-            {...register('description', { required: 'La description est obligatoire' })}
-            rows={3}
-            placeholder="Décrivez le service en quelques phrases claires et attractives..."
-            className="mt-1 block w-full text-gray-900 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 placeholder-gray-400"
-          />
-          {errors.description && <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>}
-        </div>
-
-        {/* Prix + Catégorie */}
+      {/* ── Tarification & catégorie ── */}
+      <div className="bg-gray-50/60 dark:bg-slate-900/30 border border-gray-100 dark:border-slate-700 rounded-2xl p-4 sm:p-5">
+        <SectionHeader icon={Tag} title="Tarification & catégorie" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Prix (FG) <span className="text-red-500">*</span>
             </label>
             <input
               type="number" step="0.01" min="0"
               {...register('price', { required: 'Le prix est obligatoire', min: { value: 0, message: 'Le prix doit être positif' } })}
               placeholder="0.00"
-              className="mt-1 block w-full text-gray-900 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 placeholder-gray-400"
+              className={inputClass}
             />
-            {errors.price && <p className="mt-1 text-sm text-red-600">{errors.price.message}</p>}
+            {errors.price && <p className="mt-1.5 text-sm text-red-600 dark:text-red-400 flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />{errors.price.message}</p>}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Catégorie <span className="text-red-500">*</span>
             </label>
             <select
-              {...register('category', { required: 'La catégorie est obligatoire' })}
-              className="mt-1 block w-full text-gray-900 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              {...register('category', {
+                required: 'La catégorie est obligatoire',
+                // ✅ Ne vide les champs personnalisés que sur un vrai changement
+                // déclenché par l'utilisateur (pas au chargement du formulaire en édition).
+                onChange: () => setCustomFields([]),
+              })}
+              className={`${inputClass} cursor-pointer`}
             >
               <option value="">Sélectionner une catégorie...</option>
               {Object.entries(categoryMapping).map(([key, { display }]) => (
                 <option key={key} value={key}>{display}</option>
               ))}
             </select>
-            {errors.category && <p className="mt-1 text-sm text-red-600">{errors.category.message}</p>}
+            {errors.category && <p className="mt-1.5 text-sm text-red-600 dark:text-red-400 flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />{errors.category.message}</p>}
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Délai de livraison <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              {...register('deliveryTime', { required: 'Le délai est obligatoire' })}
+              placeholder="Ex: 24h, 2-3 jours, Instantané"
+              className={inputClass}
+            />
+            {errors.deliveryTime && <p className="mt-1.5 text-sm text-red-600 dark:text-red-400 flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />{errors.deliveryTime.message}</p>}
           </div>
         </div>
+      </div>
 
-        {/* ─── SECTION IMAGE (design amélioré) ─── */}
-        <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-5 bg-gray-50/80 dark:bg-gray-800/50 space-y-4 transition-all">
-          <div className="flex items-center gap-2 text-gray-700 dark:text-gray-200 font-semibold text-sm">
-            <Image className="w-5 h-5 text-blue-500" />
-            <span>Image du service (affichée uniquement sur ordinateur)</span>
-          </div>
-
+      {/* ── Image ── */}
+      <div className="bg-gray-50/60 dark:bg-slate-900/30 border border-gray-100 dark:border-slate-700 rounded-2xl p-4 sm:p-5">
+        <SectionHeader icon={Image} title="Image du service" hint="(affichée uniquement sur ordinateur)" />
+        <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Upload de fichier */}
             <div>
@@ -643,75 +689,46 @@ const ServiceForm = ({ service, onSubmit, isLoading }) => {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Délai de livraison */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Délai de livraison <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            {...register('deliveryTime', { required: 'Le délai est obligatoire' })}
-            placeholder="Ex: 24h, 2-3 jours, Instantané"
-            className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 placeholder-gray-400"
-          />
-          {errors.deliveryTime && <p className="mt-1 text-sm text-red-600">{errors.deliveryTime.message}</p>}
-        </div>
-
-        {/* Instructions */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Instructions / Tutoriel
-            <span className="ml-2 text-xs text-gray-400 font-normal">(optionnel)</span>
-          </label>
-          <textarea
-            {...register('instructions')}
-            rows={7}
-            placeholder={`Écrivez ici tout ce que le client doit savoir :\n• Lien de téléchargement : https://...\n• Étapes à suivre (1., 2., 3.)\n• Conseils importants\n• ...`}
-            className="mt-1 block w-full text-gray-900 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm font-mono resize-y placeholder-gray-400"
-          />
-          <p className="mt-1 text-xs text-gray-500">
-            Ce texte sera affiché au client dans le modal de commande. Les liens seront automatiquement cliquables.
-          </p>
-        </div>
-
-        {/* Actif */}
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            {...register('active')}
-            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-          />
-          <label className="text-sm text-gray-700">Service actif (visible par les clients)</label>
-        </div>
+      {/* ── Instructions ── */}
+      <div className="bg-gray-50/60 dark:bg-slate-900/30 border border-gray-100 dark:border-slate-700 rounded-2xl p-4 sm:p-5">
+        <SectionHeader icon={FileText} title="Instructions / Tutoriel" hint="(optionnel)" />
+        <textarea
+          {...register('instructions')}
+          rows={6}
+          placeholder={`Écrivez ici tout ce que le client doit savoir :\n• Lien de téléchargement : https://...\n• Étapes à suivre (1., 2., 3.)\n• Conseils importants\n• ...`}
+          className={`${inputClass} font-mono text-xs resize-y`}
+        />
+        <p className="mt-2 text-xs text-slate-400 flex items-center gap-1">
+          <HelpCircle className="w-3.5 h-3.5 flex-shrink-0" />
+          Affiché au client dans le modal de commande. Les liens sont automatiquement cliquables.
+        </p>
       </div>
 
       {/* ── Champs dynamiques par catégorie ── */}
-      {selectedCategory && categoryFields[selectedCategory] && (
-        <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-            Champs requis pour {categoryMapping[selectedCategory]?.display || selectedCategory}
-          </h3>
-          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
+      {selectedCategory && categoryFields[selectedCategory]?.length > 0 && (
+        <div className="bg-gray-50/60 dark:bg-slate-900/30 border border-gray-100 dark:border-slate-700 rounded-2xl p-4 sm:p-5">
+          <SectionHeader icon={ListChecks} title={`Champs requis pour ${categoryMapping[selectedCategory]?.display || selectedCategory}`} />
+          <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl p-4 space-y-4">
             {categoryFields[selectedCategory].map((field) => (
               <div key={field.name} className="flex items-start gap-3">
                 {field.type === 'checkbox' && (
-                  <>
-                    <input type="checkbox" {...register(field.name)} className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-                    <label className="text-sm text-gray-700 dark:text-gray-300">{field.label}</label>
-                  </>
+                  <label className="flex items-center gap-2.5 cursor-pointer">
+                    <input type="checkbox" {...register(field.name)} className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 flex-shrink-0" />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{field.label}</span>
+                  </label>
                 )}
                 {field.type === 'number' && (
                   <div className="flex-1">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{field.label}</label>
-                    <input type="number" {...register(field.name, { min: field.min || 1, max: field.max || 1000 })} placeholder={field.placeholder} className="w-32 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" />
+                    <input type="number" {...register(field.name, { min: field.min || 1, max: field.max || 1000 })} placeholder={field.placeholder} className={`${inputClass} w-32`} />
                   </div>
                 )}
                 {field.type === 'select' && (
                   <div className="flex-1">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{field.label}</label>
-                    <select {...register(field.name)} className="w-48 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <select {...register(field.name)} className={`${inputClass} w-48 cursor-pointer`}>
                       {field.options?.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                     </select>
                   </div>
@@ -723,36 +740,38 @@ const ServiceForm = ({ service, onSubmit, isLoading }) => {
       )}
 
       {/* ── Champs personnalisés ── */}
-      <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white">Champs personnalisés</h3>
-          <button type="button" onClick={addCustomField} className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors">
-            <Plus className="w-4 h-4" /> Ajouter un champ
+      <div className="bg-gray-50/60 dark:bg-slate-900/30 border border-gray-100 dark:border-slate-700 rounded-2xl p-4 sm:p-5">
+        <div className="flex justify-between items-center mb-3">
+          <SectionHeader icon={Sparkles} title="Champs personnalisés" />
+          <button type="button" onClick={addCustomField} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors flex-shrink-0">
+            <Plus className="w-3.5 h-3.5" /> Ajouter un champ
           </button>
         </div>
 
         {customFields.length > 0 ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {customFields.map((field, index) => (
-              <div key={index} className="flex gap-3 items-start bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg">
-                <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <input type="text" placeholder="Nom interne (ex: imei)" value={field.name} onChange={(e) => updateCustomField(index, 'name', e.target.value)} className="rounded-lg border-gray-300 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" />
-                  <input type="text" placeholder="Label affiché (ex: Numéro IMEI)" value={field.label} onChange={(e) => updateCustomField(index, 'label', e.target.value)} className="rounded-lg border-gray-300 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" />
-                  <select value={field.type || 'text'} onChange={(e) => updateCustomField(index, 'type', e.target.value)} className="rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+              <div key={index} className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl p-3.5">
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Champ {index + 1}</span>
+                  <button type="button" onClick={() => removeCustomField(index)}
+                    className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <input type="text" placeholder="Nom interne (ex: imei)" value={field.name} onChange={(e) => updateCustomField(index, 'name', e.target.value)} className={inputClass + ' mt-0'} />
+                  <input type="text" placeholder="Label affiché (ex: Numéro IMEI)" value={field.label} onChange={(e) => updateCustomField(index, 'label', e.target.value)} className={inputClass + ' mt-0'} />
+                  <select value={field.type || 'text'} onChange={(e) => updateCustomField(index, 'type', e.target.value)} className={inputClass + ' mt-0 cursor-pointer'}>
                     <option value="text">Texte</option>
                     <option value="number">Nombre</option>
                     <option value="email">Email</option>
                     <option value="url">URL</option>
                   </select>
-                  <div className="flex items-center gap-4">
-                    <label className="flex items-center gap-2 text-sm">
-                      <input type="checkbox" checked={field.required !== false} onChange={(e) => updateCustomField(index, 'required', e.target.checked)} className="h-4 w-4 text-blue-600 rounded" />
-                      Requis
-                    </label>
-                    <button type="button" onClick={() => removeCustomField(index)} className="text-red-600 hover:text-red-800">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                    <input type="checkbox" checked={field.required !== false} onChange={(e) => updateCustomField(index, 'required', e.target.checked)} className="h-4 w-4 text-blue-600 rounded flex-shrink-0" />
+                    Champ requis
+                  </label>
                 </div>
               </div>
             ))}
@@ -763,20 +782,22 @@ const ServiceForm = ({ service, onSubmit, isLoading }) => {
       </div>
 
       {/* ── Aide ── */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 flex items-start gap-3">
+      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 rounded-2xl p-4 flex items-start gap-3">
         <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
         <div className="text-sm text-blue-700 dark:text-blue-300">
           <p className="font-medium mb-1">Comment ça fonctionne ?</p>
-          <p>Les champs cochés seront demandés au client lors de la commande. Les instructions seront affichées dans le modal de commande avec les liens cliquables.</p>
+          <p>Les champs cochés (ou personnalisés) seront demandés au client lors de la commande. Les instructions seront affichées dans le modal de commande avec les liens cliquables.</p>
         </div>
       </div>
 
-      {/* ── Boutons ── */}
-      <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
-        <button type="button" onClick={() => window.history.back()} className="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+      {/* ── Boutons (fixés en bas, toujours visibles) ── */}
+      <div className="flex gap-3 pt-4 pb-[env(safe-area-inset-bottom)] -mx-4 sm:-mx-6 -mb-5 px-4 sm:px-6 mt-6 sticky bottom-0 bg-white dark:bg-slate-800 border-t border-gray-100 dark:border-slate-700">
+        <button type="button" onClick={onCancel}
+          className="flex-1 sm:flex-initial px-6 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
           Annuler
         </button>
-        <button type="submit" disabled={isLoading} className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg text-sm font-medium hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+        <button type="submit" disabled={isLoading}
+          className="flex-1 sm:flex-initial sm:ml-auto px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl text-sm font-semibold hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all">
           {isLoading ? 'Enregistrement...' : (service ? 'Mettre à jour' : 'Créer le service')}
         </button>
       </div>

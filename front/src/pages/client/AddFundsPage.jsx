@@ -45,7 +45,7 @@ const AddFundsPage = () => {
       const msg = encodeURIComponent(
         `Bonjour Admin, je souhaite ajouter ${formatFG(amount)} FG à mon compte (ID: ${user?._id?.slice(-8)}). Solde actuel: ${formatFG(user?.balance)} FG.`
       );
-      window.open(`https://wa.me/224611066809?text=${msg}`, '_blank');
+      window.open(`https://wa.me/224612563702?text=${msg}`, '_blank');
       setSubmitted(true);
       setTimeout(() => setSubmitted(false), 3000);
     } else if (selectedMethod === 'bank') {

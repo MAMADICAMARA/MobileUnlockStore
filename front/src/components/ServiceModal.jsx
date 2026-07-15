@@ -136,11 +136,9 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
         { name: 'quantity', label: 'Quantité',           type: 'number', required: true, defaultValue: 1, min: 1, max: 10, helpText: 'Nombre de crédits souhaités' },
       ],
       Rental: [
-        { name: 'duration', label: 'Durée de location', type: 'select', required: true, options: [{ value: '1', label: '1 mois' }, { value: '3', label: '3 mois' }, { value: '6', label: '6 mois' }, { value: '12', label: '12 mois' }] },
         { name: 'notes',    label: 'Notes (optionnel)', type: 'textarea', required: false, placeholder: 'Informations complémentaires...' },
       ],
       Remote: [
-        { name: 'remoteType',     label: 'Outil',                type: 'select',   required: true, options: [{ value: 'anydesk', label: 'AnyDesk' }, { value: 'teamviewer', label: 'TeamViewer' }, { value: 'chrome', label: 'Chrome Remote' }, { value: 'other', label: 'Autre' }] },
         { name: 'remoteId',       label: 'ID de connexion',      type: 'text',     required: true, placeholder: 'ID AnyDesk/TeamViewer...' },
         { name: 'remotePassword', label: 'Mot de passe temporaire', type: 'password', required: true, placeholder: 'Mot de passe pour la session' },
       ],

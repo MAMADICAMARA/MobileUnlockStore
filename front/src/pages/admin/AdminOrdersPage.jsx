@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import {
   Search, ChevronDown, ChevronUp, Clock, CheckCircle, XCircle,
   AlertCircle, Eye, RefreshCw, CreditCard, ArrowUpDown,
-  FileText, ClipboardList, X, ArrowLeftRight, Package, User
+  FileText, ClipboardList, X, ArrowLeftRight, Package, User, KeyRound
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import adminService from '../../services/adminService';
@@ -81,13 +81,45 @@ const useLockBodyScroll = (locked) => {
 };
 
 // ─── Modal détails ────────────────────────────────────────────────────────────
-const OrderModal = ({ order, onClose, onStatusChange }) => {
+const OrderModal = ({ order, onClose, onStatusChange, onDeliverySent }) => {
   const navigate  = useNavigate();
   const submitted = extractSubmitted(order);
   const client    = order.userId   || {};
   const service   = order.serviceId || {};
   const isTermine   = order.status === 'Terminé';
   const isRembourse = order.status === 'Remboursé';
+
+  // ✅ Commandes Location : l'admin doit fournir des identifiants de connexion
+  // avant de pouvoir clôturer la commande.
+  const category   = order.serviceDetails?.category || service.category;
+  const isRental    = category === 'Rental';
+  const hasDelivery = !!(order.deliveryData?.username && order.deliveryData?.password);
+  const canComplete = !isRental || hasDelivery;
+
+  const [username, setUsername] = useState(order.deliveryData?.username || '');
+  const [password, setPassword] = useState(order.deliveryData?.password || '');
+  const [sending, setSending]   = useState(false);
+  const [sendError, setSendError] = useState('');
+
+  const handleSendCredentials = async () => {
+    if (!username.trim() || !password.trim()) {
+      setSendError("Nom d'utilisateur et mot de passe requis.");
+      return;
+    }
+    setSending(true);
+    setSendError('');
+    const ok = await onDeliverySent(order._id, { username: username.trim(), password: password.trim() });
+    setSending(false);
+    if (!ok) setSendError("Échec de l'envoi. Réessayez.");
+  };
+
+  const attemptStatusChange = (newStatus) => {
+    if (newStatus === 'Terminé' && !canComplete) {
+      setSendError('Envoyez les identifiants avant de terminer cette commande.');
+      return;
+    }
+    onStatusChange(order._id, newStatus);
+  };
 
   useLockBodyScroll(true);
 
@@ -137,11 +169,11 @@ const OrderModal = ({ order, onClose, onStatusChange }) => {
                 <StatusPill status={order.status} />
               ) : (
                 <select value={order.status}
-                  onChange={e => onStatusChange(order._id, e.target.value)}
+                  onChange={e => attemptStatusChange(e.target.value)}
                   onClick={e => e.stopPropagation()}
                   className={`text-xs font-semibold border-0 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer ${statusConf(order.status).pill}`}
                   style={{ backgroundColor: 'transparent' }}>
-                  {ORDER_STATUSES.filter(s => s.value !== 'Remboursé').map(s => (
+                  {ORDER_STATUSES.filter(s => s.value !== 'Remboursé' && (s.value !== 'Terminé' || canComplete)).map(s => (
                     <option key={s.value} value={s.value} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
                       {s.label}
                     </option>
@@ -183,6 +215,45 @@ const OrderModal = ({ order, onClose, onStatusChange }) => {
               <Field label="Date"      value={fmtDate(order.createdAt)} />
             </div>
           </div>
+
+          {/* Identifiants à envoyer (commandes Location) */}
+          {isRental && !isRembourse && (
+            <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-blue-100 dark:border-blue-900/30">
+                <div className="flex items-center gap-2 min-w-0">
+                  <KeyRound className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                  <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Identifiants à envoyer</h3>
+                </div>
+                {hasDelivery && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 flex-shrink-0">
+                    <CheckCircle className="w-3 h-3" /> Envoyés
+                  </span>
+                )}
+              </div>
+              <div className="p-4 space-y-3">
+                {!hasDelivery && (
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
+                    Renseignez les identifiants du compte loué pour ce client. La commande ne peut pas être marquée "Terminé" tant qu'ils ne sont pas envoyés.
+                  </p>
+                )}
+                <input type="text" value={username} onChange={e => setUsername(e.target.value)}
+                  placeholder="Nom d'utilisateur"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                <input type="text" value={password} onChange={e => setPassword(e.target.value)}
+                  placeholder="Mot de passe"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                {sendError && (
+                  <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {sendError}
+                  </p>
+                )}
+                <button onClick={handleSendCredentials} disabled={sending || !username.trim() || !password.trim()}
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                  {sending ? 'Envoi...' : hasDelivery ? 'Mettre à jour et renvoyer' : 'Envoyer au client'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Données soumises */}
           {submitted.length > 0 && (
@@ -245,9 +316,11 @@ const OrderModal = ({ order, onClose, onStatusChange }) => {
             <button
               onClick={() => {
                 const next = order.status === 'Terminé' ? 'En cours' : 'Terminé';
-                onStatusChange(order._id, next);
+                attemptStatusChange(next);
               }}
-              className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-colors">
+              disabled={order.status !== 'Terminé' && !canComplete}
+              title={order.status !== 'Terminé' && !canComplete ? 'Envoyez les identifiants avant de terminer cette commande.' : undefined}
+              className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
               {order.status === 'Terminé' ? 'Réouvrir' : '→ Terminer'}
             </button>
           )}
@@ -321,6 +394,21 @@ const AdminOrdersPage = () => {
       });
       if (selectedOrder?._id === id) setSelectedOrder(p => ({ ...p, status }));
     } catch (e) { console.error(e); }
+  };
+
+  // ✅ Envoi des identifiants de connexion (commandes Location) — met à jour
+  // deliveryData et déclenche une notification côté serveur pour le client.
+  const handleDeliverySent = async (id, deliveryData) => {
+    try {
+      const res = await adminService.updateOrder(id, { deliveryData });
+      const updated = res.data?.data || res.data;
+      setOrders(prev => prev.map(o => o._id === id ? { ...o, deliveryData: updated.deliveryData } : o));
+      if (selectedOrder?._id === id) setSelectedOrder(p => ({ ...p, deliveryData: updated.deliveryData }));
+      return true;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
   };
 
   const filteredOrders = useMemo(() => {
@@ -581,6 +669,7 @@ const AdminOrdersPage = () => {
           order={selectedOrder}
           onClose={() => setSelectedOrder(null)}
           onStatusChange={handleStatusChange}
+          onDeliverySent={handleDeliverySent}
         />
       )}
     </div>

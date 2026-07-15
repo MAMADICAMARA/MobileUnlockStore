@@ -1,7 +1,19 @@
 // src/pages/admin/AdminServicesPage.jsx
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { X, Server, Sparkles } from 'lucide-react';
 import ServiceForm from '../../components/admin/ServiceForm';
 import adminService from '../../services/adminService';
+
+// ─── Hook : verrouille le scroll du body pendant qu'un modal est ouvert ────────
+const useLockBodyScroll = (locked) => {
+  useEffect(() => {
+    if (!locked) return;
+    const original = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = original; };
+  }, [locked]);
+};
 
 const AdminServicesPage = () => {
   const [services, setServices] = useState([]);
@@ -10,6 +22,15 @@ const AdminServicesPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedService, setSelectedService] = useState(null);
   const [formLoading, setFormLoading] = useState(false);
+
+  useLockBodyScroll(isModalOpen);
+
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const handler = (e) => { if (e.key === 'Escape') setIsModalOpen(false); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isModalOpen]);
 
   useEffect(() => {
     const fetchServices = async () => {
@@ -157,37 +178,62 @@ const AdminServicesPage = () => {
           )}
         </div>
 
-        {/* Modal professionnel */}
-        {isModalOpen && (
+        {/* Modal création / édition de service */}
+        {isModalOpen && createPortal(
           <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            onClick={() => setIsModalOpen(false)}
+            // ✅ z-[60] + portail dans <body> : évite que le backdrop-blur du layout
+            // admin ne piège ce modal en position fixed (bug déjà rencontré ailleurs
+            // dans l'app — voir OrderModal dans AdminOrdersPage.jsx).
+            className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) setIsModalOpen(false); }}
           >
-            <div
-              className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="sticky top-0 bg-white dark:bg-slate-800 z-10 flex justify-between items-center px-6 py-4 border-b border-gray-200 dark:border-gray-700 rounded-t-2xl">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white">
-                  {selectedService ? 'Modifier le service' : 'Nouveau service'}
-                </h2>
+            <div className="relative bg-white dark:bg-slate-800 w-full sm:max-w-2xl rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[88vh]">
+
+              {/* Bandeau couleur */}
+              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-t-2xl" />
+
+              {/* ── Header ── */}
+              <div className="relative flex items-start justify-between gap-3 px-4 sm:px-6 pt-5 pb-4 border-b border-slate-100 dark:border-slate-700 flex-shrink-0">
+                {/* Indicateur de glissement (mobile) */}
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-slate-300 dark:bg-slate-600 rounded-full sm:hidden" />
+                <div className="flex items-center gap-3 min-w-0 mt-1 sm:mt-0">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 p-0.5 flex-shrink-0">
+                    <div className="w-full h-full rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center">
+                      {selectedService
+                        ? <Server className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        : <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />}
+                    </div>
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white truncate">
+                      {selectedService ? 'Modifier le service' : 'Nouveau service'}
+                    </h2>
+                    {selectedService && (
+                      <p className="text-xs text-slate-400 truncate">{selectedService.name}</p>
+                    )}
+                  </div>
+                </div>
                 <button
                   onClick={() => setIsModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 text-3xl leading-none transition"
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors flex-shrink-0"
                   aria-label="Fermer"
                 >
-                  ×
+                  <X className="w-5 h-5 text-slate-400" />
                 </button>
               </div>
-              <div className="px-6 py-6">
+
+              {/* ── Corps scrollable ── */}
+              <div className="overflow-y-auto flex-1 min-h-0 px-4 sm:px-6 py-5">
                 <ServiceForm
                   service={selectedService}
                   onSubmit={handleSubmit}
                   isLoading={formLoading}
+                  onCancel={() => setIsModalOpen(false)}
                 />
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </main>
     </div>
