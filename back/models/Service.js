@@ -37,7 +37,7 @@ const ServiceSchema = new mongoose.Schema({
   category: {
     type: String,
     required: [true, 'La catégorie est requise'],
-    enum: ['IMEI', 'Server', 'Rental', 'License'],
+    enum: ['IMEI', 'Server', 'Rental', 'Credit'],
   },
   deliveryTime: {
     type: String,
@@ -116,7 +116,7 @@ module.exports = Service;
 //   category: {
 //     type: String,
 //     required: [true, 'La catégorie est requise'],
-//     enum: ['IMEI', 'Server', 'Rental', 'License'],
+//     enum: ['IMEI', 'Server', 'Rental', 'Credit'],
 //   },
 //   deliveryTime: {
 //     type: String,
@@ -222,7 +222,7 @@ module.exports = Service;
 //   category: {
 //     type: String,
 //     required: [true, 'La catégorie est requise'],
-//     enum: ['IMEI', 'Server', 'Rental', 'License'],
+//     enum: ['IMEI', 'Server', 'Rental', 'Credit'],
 //   },
 //   active: {
 //     type: Boolean,

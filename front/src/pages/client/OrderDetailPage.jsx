@@ -7,7 +7,7 @@ import {
   ArrowLeft,
   Package,
   Calendar,
-  DollarSign,
+  Banknote,
   CheckCircle,
   Clock,
   AlertCircle,
@@ -278,7 +278,7 @@ const OrderDetailPage = () => {
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Montant</p>
           <div className="flex items-center gap-2">
-            <DollarSign className="w-5 h-5 text-green-500" />
+            <Banknote className="w-5 h-5 text-green-500" />
             <span className="text-lg font-bold text-green-600 dark:text-green-400">
               {formatPrice(order?.amount)}
             </span>

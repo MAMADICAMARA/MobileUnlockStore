@@ -22,7 +22,7 @@ exports.createService = async (req, res) => {
     }
 
     // Validation category
-    const validCategories = ['IMEI', 'Server', 'Rental', 'License'];
+    const validCategories = ['IMEI', 'Server', 'Rental', 'Credit'];
     if (!validCategories.includes(category)) {
       return res.status(400).json({
         success: false,
@@ -85,7 +85,7 @@ exports.updateService = async (req, res) => {
     if (description !== undefined) service.description = description;
     if (price !== undefined) service.price = parseFloat(price);
     if (category !== undefined) {
-      const validCategories = ['IMEI', 'Server', 'Rental', 'License'];
+      const validCategories = ['IMEI', 'Server', 'Rental', 'Credit'];
       if (!validCategories.includes(category)) {
         return res.status(400).json({
           success: false,
@@ -147,7 +147,7 @@ exports.deleteService = async (req, res) => {
 /**
  * @desc    Récupérer tous les services (avec filtre par catégorie)
  * @route   GET /api/services
- * @query   category (optionnel): IMEI, Server, Rental, License
+ * @query   category (optionnel): IMEI, Server, Rental, Credit
  *          active (optionnel): true/false
  *          page, limit
  * @access  Public
@@ -160,7 +160,7 @@ exports.getServices = async (req, res) => {
 
     // Filtrer par catégorie si fourni
     if (category) {
-      const validCategories = ['IMEI', 'Server', 'Rental', 'License'];
+      const validCategories = ['IMEI', 'Server', 'Rental', 'Credit'];
       if (!validCategories.includes(category)) {
         return res.status(400).json({
           success: false,
@@ -266,7 +266,7 @@ exports.getUserFieldsForCategory = async (req, res) => {
   try {
     const { category } = req.params;
 
-    const validCategories = ['IMEI', 'Server', 'Rental', 'License'];
+    const validCategories = ['IMEI', 'Server', 'Rental', 'Credit'];
     if (!validCategories.includes(category)) {
       return res.status(400).json({
         success: false,

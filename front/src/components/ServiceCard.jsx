@@ -7,7 +7,7 @@ const ServiceCard = ({ service, onClick }) => {
 
   const categoryLabels = {
     'IMEI':    'IMEI',
-    'License': 'Licence',
+    'Credit':  'Crédit',
     'Rental':  'Location',
     'Server':  'Serveur',
     'Remote':  'Remote',
@@ -16,7 +16,7 @@ const ServiceCard = ({ service, onClick }) => {
 
   const typeConfig = {
     'IMEI':    { color: 'from-blue-500 to-cyan-500',     icon: Smartphone, badge: 'bg-blue-100 text-blue-800',     border: 'border-blue-200' },
-    'License': { color: 'from-green-500 to-emerald-500', icon: Key,        badge: 'bg-green-100 text-green-800',    border: 'border-green-200' },
+    'Credit':  { color: 'from-green-500 to-emerald-500', icon: Key,        badge: 'bg-green-100 text-green-800',    border: 'border-green-200' },
     'Rental':  { color: 'from-purple-500 to-pink-500',   icon: Globe,      badge: 'bg-purple-100 text-purple-800', border: 'border-purple-200' },
     'Server':  { color: 'from-orange-500 to-amber-500',  icon: Server,     badge: 'bg-orange-100 text-orange-800', border: 'border-orange-200' },
     'Remote':  { color: 'from-indigo-500 to-purple-500', icon: Wifi,       badge: 'bg-indigo-100 text-indigo-800', border: 'border-indigo-200' },

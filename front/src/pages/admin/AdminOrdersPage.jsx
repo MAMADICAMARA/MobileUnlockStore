@@ -17,7 +17,7 @@ const ORDER_STATUSES = [
   { value: 'Remboursé',  label: 'Remboursé',  dot: 'bg-purple-400',  pill: 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',      icon: ArrowLeftRight },
 ];
 
-const CATEGORIES = ['Tous', 'IMEI', 'Server', 'Rental', 'License'];
+const CATEGORIES = ['Tous', 'IMEI', 'Server', 'Rental', 'Credit'];
 
 // ─── Utils ────────────────────────────────────────────────────────────────────
 const fmtDate = (d) => d
@@ -607,7 +607,7 @@ export default AdminOrdersPage;
 //   { value: 'Remboursé',  label: 'Remboursé',  dot: 'bg-purple-400',  pill: 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',      icon: ArrowLeftRight },
 // ];
 
-// const CATEGORIES = ['Tous', 'IMEI', 'Server', 'Rental', 'License'];
+// const CATEGORIES = ['Tous', 'IMEI', 'Server', 'Rental', 'Credit'];
 
 // // ─── Utils ────────────────────────────────────────────────────────────────────
 // const fmtDate = (d) => d

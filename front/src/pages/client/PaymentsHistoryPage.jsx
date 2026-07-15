@@ -14,7 +14,7 @@ import {
   Eye,
   FileText,
   Printer,
-  DollarSign,
+  Banknote,
   Wallet,
   ArrowUpRight,
   ArrowDownRight,
@@ -416,7 +416,7 @@ const PaymentsHistoryPage = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <DollarSign className="w-4 h-4 text-gray-400" />
+                            <Banknote className="w-4 h-4 text-gray-400" />
                             <span className={`text-lg font-bold ${
                               payment.amount > 0 
                                 ? 'text-green-600 dark:text-green-400' 

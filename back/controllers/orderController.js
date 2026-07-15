@@ -262,7 +262,7 @@ exports.placeOrder = async (req, res) => {
 /**
  * @desc    Récupérer les commandes de l'utilisateur (avec filtre par catégorie)
  * @route   GET /api/orders/my
- * @query   category (optionnel): IMEI, Server, Rental, License
+ * @query   category (optionnel): IMEI, Server, Rental, Credit
  * @access  Private (Client)
  */
 exports.getMyOrders = async (req, res) => {

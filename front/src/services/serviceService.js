@@ -9,7 +9,7 @@ const serviceService = {
    * Récupère la liste de tous les services depuis le backend.
    * Supporte les paramètres optionnels pour filtrer les services.
    * @param {object} params - Paramètres optionnels de filtrage
-   * @param {string} params.category - Filtrer par catégorie (IMEI, Server, Rental, License)
+   * @param {string} params.category - Filtrer par catégorie (IMEI, Server, Rental, Credit)
    * @returns {Promise<object>} La réponse de l'API contenant la liste des services.
    */
   getServices: (params = {}) => {

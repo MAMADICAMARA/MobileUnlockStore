@@ -68,17 +68,17 @@ const ServicesHomePage = () => {
       }
     },
     {
-      id: 'License',
-      title: 'Credit Logicielles',
-      description: 'Licences authentiques pour vos logiciels',
-      longDescription: 'recharger vos compte de logiciel avec rapidité et simplicité',
+      id: 'Credit',
+      title: 'Crédits Logiciels',
+      description: 'Crédits pour vos outils de déblocage (TFM Tool Pro, etc.)',
+      longDescription: 'Rechargez vos comptes d\'outils de déblocage avec rapidité et simplicité',
       icon: Key,
       color: 'from-green-500 to-emerald-500',
       bgColor: 'bg-green-50 dark:bg-green-900/20',
       textColor: 'text-green-600 dark:text-green-400',
       borderColor: 'border-green-200 dark:border-green-800',
       features: [
-        'Licences originales',
+        'Crédits authentiques',
         'Prix compétitifs',
         'Livraison instantanée',
         'Support inclus'

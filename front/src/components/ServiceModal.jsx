@@ -25,6 +25,8 @@ import serviceService from '../services/serviceService';
 import orderService from '../services/orderService';
 import axios from 'axios';
 
+const fmtFG = (n) => new Intl.NumberFormat('fr-FR').format(n || 0);
+
 /**
  * ServiceModal — Modal de commande de service.
  *
@@ -92,7 +94,7 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
     const c = raw.toString().trim();
     if (c.includes('IMEI'))                         return 'IMEI';
     if (c.includes('Server'))                        return 'Server';
-    if (c.includes('License') || c.includes('Licence')) return 'License';
+    if (c.includes('Credit') || c.includes('License') || c.includes('Licence')) return 'Credit';
     if (c.includes('Rental'))                        return 'Rental';
     if (c.includes('Remote'))                        return 'Remote';
     return 'IMEI';
@@ -104,7 +106,7 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
   // ─── Thème par catégorie ──────────────────────────────────────────────────
   const themes = {
     IMEI:    { icon: Smartphone, gradient: 'from-blue-500 to-cyan-500',     light: 'bg-blue-50 dark:bg-blue-900/20',     text: 'text-blue-600 dark:text-blue-400',     border: 'border-blue-200 dark:border-blue-800',     label: 'Déblocage IMEI' },
-    License: { icon: Key,        gradient: 'from-green-500 to-emerald-500', light: 'bg-green-50 dark:bg-green-900/20',   text: 'text-green-600 dark:text-green-400',   border: 'border-green-200 dark:border-green-800',   label: 'Licence Logicielle' },
+    Credit:  { icon: Key,        gradient: 'from-green-500 to-emerald-500', light: 'bg-green-50 dark:bg-green-900/20',   text: 'text-green-600 dark:text-green-400',   border: 'border-green-200 dark:border-green-800',   label: 'Crédit Logiciel' },
     Server:  { icon: Server,     gradient: 'from-orange-500 to-red-500',    light: 'bg-orange-50 dark:bg-orange-900/20', text: 'text-orange-600 dark:text-orange-400', border: 'border-orange-200 dark:border-orange-800', label: 'Service Serveur' },
     Rental:  { icon: Globe,      gradient: 'from-purple-500 to-pink-500',   light: 'bg-purple-50 dark:bg-purple-900/20', text: 'text-purple-600 dark:text-purple-400', border: 'border-purple-200 dark:border-purple-800', label: 'Location' },
     Remote:  { icon: Wifi,       gradient: 'from-indigo-500 to-purple-500', light: 'bg-indigo-50 dark:bg-indigo-900/20', text: 'text-indigo-600 dark:text-indigo-400', border: 'border-indigo-200 dark:border-indigo-800', label: 'Assistance Remote' },
@@ -112,11 +114,6 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
 
   const theme = themes[category] || themes.IMEI;
   const Icon  = theme.icon;
-
-  // ─── Solde ────────────────────────────────────────────────────────────────
-  const currentBalance    = user?.balance ?? userBalance ?? 0;
-  const isBalanceSufficient = currentBalance >= service.price;
-  const remainingBalance  = currentBalance - service.price;
 
   // ─── Champs du formulaire ─────────────────────────────────────────────────
   /**
@@ -134,9 +131,9 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
         { name: 'username', label: "Nom d'utilisateur (logiciel)", type: 'text',  required: true, placeholder: 'john_doe',          helpText: 'Nom d\'utilisateur du compte logiciel' },
         { name: 'email',    label: 'Email (compte logiciel)',       type: 'email', required: true, placeholder: 'votre@email.com',   helpText: 'Email utilisé pour ouvrir le compte logiciel' },
       ],
-      License: [
-        { name: 'email',    label: 'Email de réception', type: 'email',  required: true, placeholder: 'votre@email.com', helpText: 'La clé d\'activation sera envoyée ici' },
-        { name: 'quantity', label: 'Quantité',           type: 'number', required: true, defaultValue: 1, min: 1, max: 10, helpText: 'Nombre de licences souhaitées' },
+      Credit: [
+        { name: 'email',    label: 'Email de réception', type: 'email',  required: true, placeholder: 'votre@email.com', helpText: 'Les identifiants seront envoyés ici' },
+        { name: 'quantity', label: 'Quantité',           type: 'number', required: true, defaultValue: 1, min: 1, max: 10, helpText: 'Nombre de crédits souhaités' },
       ],
       Rental: [
         { name: 'duration', label: 'Durée de location', type: 'select', required: true, options: [{ value: '1', label: '1 mois' }, { value: '3', label: '3 mois' }, { value: '6', label: '6 mois' }, { value: '12', label: '12 mois' }] },
@@ -153,6 +150,23 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
   };
 
   const formFieldDefs = getFormFields(serviceDetails);
+
+  // ─── Quantité / montant total ──────────────────────────────────────────────
+  // Si le service définit un champ numérique "quantity" (ex: vente de crédits
+  // de licence), le prix total = prix unitaire × quantité. Le backend recalcule
+  // aussi ce montant côté serveur ; on n'envoie donc jamais un montant "brut".
+  const quantityFieldDef = formFieldDefs.find(f => f.name === 'quantity' && f.type === 'number');
+  const qtyMin = quantityFieldDef?.min ?? 1;
+  const qtyMax = quantityFieldDef?.max;
+  const rawQty = quantityFieldDef ? parseInt(formFields.quantity, 10) : 1;
+  const effectiveQty = quantityFieldDef && Number.isFinite(rawQty) && rawQty >= 1 ? rawQty : 1;
+  const unitPrice  = service.price || 0;
+  const totalPrice = quantityFieldDef ? unitPrice * effectiveQty : unitPrice;
+
+  // ─── Solde ────────────────────────────────────────────────────────────────
+  const currentBalance      = user?.balance ?? userBalance ?? 0;
+  const isBalanceSufficient = currentBalance >= totalPrice;
+  const remainingBalance    = currentBalance - totalPrice;
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
   const handleFieldChange = (e) => {
@@ -178,6 +192,13 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
         if (!new RegExp(field.validation.pattern).test(value)) { setError(field.validation.message || `${field.label} n'est pas valide`); return false; }
       }
       if (field.type === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) { setError('Adresse email invalide'); return false; }
+      if (field.name === 'quantity' && field.type === 'number') {
+        const n = parseInt(value, 10);
+        if (!Number.isFinite(n) || n < qtyMin || (qtyMax != null && n > qtyMax)) {
+          setError(`${field.label} doit être un nombre entre ${qtyMin} et ${qtyMax ?? '∞'}`);
+          return false;
+        }
+      }
     }
     return true;
   };
@@ -196,6 +217,7 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
       const orderResponse = await orderService.placeOrder({
         serviceId: service._id,
         userSubmittedData: formFields,
+        quantity: effectiveQty,
       });
 
       if (selectedFile) {
@@ -369,8 +391,11 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
                 </p>
               </div>
               <div className="text-right flex-shrink-0">
-                <span className={`text-xs ${theme.text}`}>Prix</span>
-                <p className={`text-2xl font-bold ${theme.text}`}>{service.price?.toFixed(2)} €</p>
+                <span className={`text-xs ${theme.text}`}>{quantityFieldDef && effectiveQty > 1 ? 'Total' : 'Prix'}</span>
+                <p className={`text-2xl font-bold ${theme.text}`}>{fmtFG(totalPrice)} FG</p>
+                {quantityFieldDef && effectiveQty > 1 && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{fmtFG(unitPrice)} FG × {effectiveQty}</p>
+                )}
               </div>
             </div>
             {service.deliveryTime && (
@@ -393,12 +418,12 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Solde disponible</span>
               </div>
               <span className={`font-bold ${isBalanceSufficient ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                {currentBalance.toFixed(2)} €
+                {fmtFG(currentBalance)} FG
               </span>
             </div>
             {isBalanceSufficient && (
               <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">
-                Après commande : <span className="font-semibold text-green-600 dark:text-green-400">{remainingBalance.toFixed(2)} €</span>
+                Après commande : <span className="font-semibold text-green-600 dark:text-green-400">{fmtFG(remainingBalance)} FG</span>
               </p>
             )}
           </div>
@@ -473,8 +498,8 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
                     <dd className="font-medium text-gray-900 dark:text-white">{service.name}</dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-gray-500 dark:text-gray-400">Prix</dt>
-                    <dd className="font-medium text-green-600 dark:text-green-400">{service.price?.toFixed(2)} €</dd>
+                    <dt className="text-gray-500 dark:text-gray-400">{quantityFieldDef ? 'Prix unitaire' : 'Prix'}</dt>
+                    <dd className="font-medium text-green-600 dark:text-green-400">{fmtFG(unitPrice)} FG</dd>
                   </div>
                   {formFieldDefs.map(field => {
                     const value = formFields[field.name];
@@ -488,9 +513,15 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
                       </div>
                     );
                   })}
+                  {quantityFieldDef && effectiveQty > 1 && (
+                    <div className="flex justify-between">
+                      <dt className="font-medium text-gray-900 dark:text-white">Total</dt>
+                      <dd className="font-bold text-green-600 dark:text-green-400">{fmtFG(totalPrice)} FG</dd>
+                    </div>
+                  )}
                   <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
                     <dt className="font-medium text-gray-900 dark:text-white">Solde après commande</dt>
-                    <dd className="font-bold text-green-600 dark:text-green-400">{remainingBalance.toFixed(2)} €</dd>
+                    <dd className="font-bold text-green-600 dark:text-green-400">{fmtFG(remainingBalance)} FG</dd>
                   </div>
                 </dl>
               </div>

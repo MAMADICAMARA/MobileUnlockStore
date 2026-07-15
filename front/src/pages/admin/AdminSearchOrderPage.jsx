@@ -59,7 +59,7 @@ const AdminSearchOrderPage = () => {
   };
 
   const getCategoryIcon = (category) => {
-    const icons = { IMEI: Smartphone, Server: Server, Rental: Globe, License: Key };
+    const icons = { IMEI: Smartphone, Server: Server, Rental: Globe, Credit: Key };
     const Icon = icons[category] || Package;
     return <Icon className="w-5 h-5" />;
   };

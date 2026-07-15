@@ -1,7 +1,7 @@
 // src/pages/client/AddFundsPage.jsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, DollarSign, History, MessageCircle, Shield, CheckCircle, ShieldAlert } from 'lucide-react';
+import { CreditCard, Banknote, History, MessageCircle, Shield, CheckCircle, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
 // Montant minimum autorisé pour une recharge de compte (en FG)
@@ -259,7 +259,7 @@ const AddFundsPage = () => {
                 type="submit"
                 className="w-full py-3 px-6 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg font-bold transition-all flex items-center justify-center gap-2 text-sm"
               >
-                <DollarSign className="w-5 h-5" />
+                <Banknote className="w-5 h-5" />
                 Recharger {formatFG(amount)} FG
               </button>
             </form>

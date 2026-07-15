@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
   Search, Filter, Calendar, Package, Clock, CheckCircle,
   AlertCircle, Eye, ChevronDown, ChevronUp, ArrowUpDown,
-  ShoppingBag, DollarSign, X, Loader, FileText, Info,
+  ShoppingBag, Banknote, X, Loader, FileText, Info,
   Layers, Hash, Terminal, MessageSquare, RefreshCw
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -37,7 +37,7 @@ const OrderHistoryPage = () => {
     { key: 'imei',     label: '📱 Commandes IMEI' },
     { key: 'serveur',  label: '🖥️ Commandes Serveur' },
     { key: 'remote',   label: '🌐 Remote' },
-    { key: 'licences', label: '🔑 Licences' },
+    { key: 'credit',   label: '🔑 Crédits' },
   ];
 
   const normalizeStatus = (status) => {
@@ -203,7 +203,7 @@ const OrderHistoryPage = () => {
         <StatCard title="Total commandes" value={stats.total}               icon={ShoppingBag}  color="from-blue-500 to-cyan-500"     />
         <StatCard title="Terminées"       value={stats.completed}           icon={CheckCircle}  color="from-green-500 to-emerald-500"  />
         <StatCard title="En cours"        value={stats.pending}             icon={Clock}        color="from-yellow-500 to-amber-500"   />
-        <StatCard title="Total dépensé"   value={formatPrice(stats.totalSpent)} icon={DollarSign} color="from-purple-500 to-pink-500" />
+        <StatCard title="Total dépensé"   value={formatPrice(stats.totalSpent)} icon={Banknote} color="from-purple-500 to-pink-500" />
       </div>
 
       {/* Onglets catégorie */}

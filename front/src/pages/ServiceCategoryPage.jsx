@@ -31,9 +31,11 @@ const ServiceCategoryPage = () => {
       case 'rental':
       case 'remote':
         return 'Rental';
+      case 'credit':
+      case 'credits':
       case 'license':
       case 'licence':
-        return 'License';
+        return 'Credit';
       default:
         return rawCategory;
     }
@@ -86,9 +88,9 @@ const ServiceCategoryPage = () => {
       bgColor: 'from-purple-600 to-pink-600',
       lightBg: 'bg-purple-50 dark:bg-purple-900/20'
     },
-    'License': {
-      title: 'Licences Logicielles',
-      description: 'Licences activables pour vos logiciels et applications',
+    'Credit': {
+      title: 'Crédits Logiciels',
+      description: 'Crédits pour vos outils de déblocage (TFM Tool Pro, etc.)',
       icon: Key,
       color: 'from-green-500 to-emerald-500',
       bgColor: 'from-green-600 to-emerald-600',

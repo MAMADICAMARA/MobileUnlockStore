@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Package, Calendar, Euro, CheckCircle,
+  ArrowLeft, Package, Calendar, Banknote, CheckCircle,
   AlertCircle, Save, Loader, Copy, User, Mail, CreditCard,
   Shield, Tag, Clock, Hash, FileText, Plus, Trash2,
   ArrowLeftRight // 🛠️ Ajout de l'icône pour le remboursement
@@ -224,7 +224,7 @@ const AdminOrderDetailsPage = () => {
 
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <InfoBox icon={Calendar} label="Date"       value={formatDate(order.createdAt)} />
-          <InfoBox icon={Euro}     label="Montant"    value={formatCurrency(order.serviceDetails?.price || order.amount)} color="text-green-600" />
+          <InfoBox icon={Banknote} label="Montant"    value={formatCurrency(order.serviceDetails?.price || order.amount)} color="text-green-600" />
           <InfoBox icon={Clock}    label="Délai"      value={service.deliveryTime || 'N/A'} />
           <InfoBox icon={Tag}      label="Catégorie"  value={order.serviceDetails?.category || service.category || 'N/A'} />
         </div>
@@ -428,7 +428,7 @@ export default AdminOrderDetailsPage;
 // import { useState, useEffect } from 'react';
 // import { useParams, useNavigate } from 'react-router-dom';
 // import {
-//   ArrowLeft, Package, Calendar, Euro, CheckCircle,
+//   ArrowLeft, Package, Calendar, Banknote, CheckCircle,
 //   AlertCircle, Save, Loader, Copy, User, Mail, CreditCard,
 //   Shield, Tag, Clock, Hash, FileText, Plus, Trash2
 // } from 'lucide-react';
@@ -634,7 +634,7 @@ export default AdminOrderDetailsPage;
 
 //         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
 //           <InfoBox icon={Calendar} label="Date"       value={formatDate(order.createdAt)} />
-//           <InfoBox icon={Euro}     label="Montant"    value={formatCurrency(order.serviceDetails?.price || order.amount)} color="text-green-600" />
+//           <InfoBox icon={Banknote} label="Montant"    value={formatCurrency(order.serviceDetails?.price || order.amount)} color="text-green-600" />
 //           <InfoBox icon={Clock}    label="Délai"      value={service.deliveryTime || 'N/A'} />
 //           <InfoBox icon={Tag}      label="Catégorie"  value={order.serviceDetails?.category || service.category || 'N/A'} />
 //         </div>
@@ -844,7 +844,7 @@ export default AdminOrderDetailsPage;
 // import { useState, useEffect } from 'react';
 // import { useParams, useNavigate } from 'react-router-dom';
 // import {
-//   ArrowLeft, Package, Calendar, Euro, CheckCircle,
+//   ArrowLeft, Package, Calendar, Banknote, CheckCircle,
 //   AlertCircle, Save, Loader, Copy, User, Mail, CreditCard,
 //   Shield, Tag, Clock, Hash, FileText, Plus, Trash2
 // } from 'lucide-react';
@@ -1049,7 +1049,7 @@ export default AdminOrderDetailsPage;
 
 //         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 //           <InfoBox icon={Calendar} label="Date"       value={formatDate(order.createdAt)} />
-//           <InfoBox icon={Euro}     label="Montant"    value={formatCurrency(order.serviceDetails?.price || order.amount)} color="text-green-600" />
+//           <InfoBox icon={Banknote} label="Montant"    value={formatCurrency(order.serviceDetails?.price || order.amount)} color="text-green-600" />
 //           <InfoBox icon={Clock}    label="Délai"      value={service.deliveryTime || 'N/A'} />
 //           <InfoBox icon={Tag}      label="Catégorie"  value={order.serviceDetails?.category || service.category || 'N/A'} />
 //         </div>

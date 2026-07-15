@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
-import { Wallet, Mail, DollarSign, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { Wallet, Mail, Banknote, CheckCircle, AlertCircle, Loader } from 'lucide-react';
 import adminService from '../../services/adminService';
 
 const AdminRechargeUserPage = () => {
@@ -134,7 +134,7 @@ const AdminRechargeUserPage = () => {
                 Montant (FG) <span className="text-red-500">*</span>
               </label>
               <div className="relative">
-                <DollarSign className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Banknote className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="number"
                   // ✅ inputMode decimal pour le pavé numérique sur mobile

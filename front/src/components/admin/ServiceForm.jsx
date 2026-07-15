@@ -355,7 +355,7 @@ const ServiceForm = ({ service, onSubmit, isLoading }) => {
     'IMEI':    { display: '📱 IMEI Services',       value: 'IMEI' },
     'Server':  { display: '🖥️ Serveur',             value: 'Server' },
     'Rental':  { display: '🌐 Location & Remote',   value: 'Rental' },
-    'License': { display: '🔑 Licences',            value: 'License' },
+    'Credit':  { display: '🔑 Crédits',             value: 'Credit' },
   };
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
@@ -435,7 +435,7 @@ const ServiceForm = ({ service, onSubmit, isLoading }) => {
       { name: 'usernameRequired', label: "Nom d'utilisateur requis", type: 'checkbox' },
       { name: 'emailRequired',    label: 'Email requis',             type: 'checkbox' },
     ],
-    'License': [
+    'Credit': [
       { name: 'maxQuantity',   label: 'Quantité maximale par commande', type: 'number', placeholder: 'ex: 50', min: 1, max: 1000 },
       { name: 'autoGenerateKey', label: 'Générer les clés automatiquement', type: 'checkbox' },
     ],
@@ -472,9 +472,9 @@ const ServiceForm = ({ service, onSubmit, isLoading }) => {
       if (data.emailRequired)    fieldsRequired.push({ name: 'email',    label: 'Email (compte logiciel)',      type: 'email', required: true, placeholder: 'utilisateur@exemple.com', helpText: 'Email du compte logiciel, pas celui du site' });
     }
 
-    if (backendCategory === 'License') {
-      fieldsRequired.push({ name: 'email', label: 'Email pour la licence', type: 'email', required: true, placeholder: 'utilisateur@exemple.com' });
-      if (data.maxQuantity > 1) fieldsRequired.push({ name: 'quantity', label: 'Quantité', type: 'number', required: true, defaultValue: 1, helpText: `Maximum ${data.maxQuantity} licences` });
+    if (backendCategory === 'Credit') {
+      fieldsRequired.push({ name: 'email', label: 'Email de réception', type: 'email', required: true, placeholder: 'utilisateur@exemple.com' });
+      if (data.maxQuantity > 1) fieldsRequired.push({ name: 'quantity', label: 'Quantité', type: 'number', required: true, defaultValue: 1, helpText: `Maximum ${data.maxQuantity} crédits` });
     }
 
     if (backendCategory === 'Rental') {
@@ -523,7 +523,7 @@ const ServiceForm = ({ service, onSubmit, isLoading }) => {
           <input
             type="text"
             {...register('name', { required: 'Le nom est obligatoire' })}
-            placeholder="Ex: Déblocage IMEI, Licence Windows 10 Pro..."
+            placeholder="Ex: Déblocage IMEI, Crédit TFM Tool Pro..."
             className="mt-1 block w-full rounded-lg border-gray-300 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 placeholder-gray-400"
           />
           {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>}

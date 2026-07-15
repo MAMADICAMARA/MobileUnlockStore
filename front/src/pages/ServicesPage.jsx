@@ -79,7 +79,7 @@ const [isModalOpen, setIsModalOpen]             = useState(false);
     services.forEach(service => {
       const category = service.category || service.type || 'Autre';
       let normalized = category;
-      if (category === 'Licence' || category === 'License')          normalized = 'License';
+      if (category === 'Licence' || category === 'License' || category === 'Credit') normalized = 'Credit';
       else if (category === 'Remote')                                  normalized = 'Rental';
       else if (category === 'Déverrouillage IMEI' || category === 'IMEI') normalized = 'IMEI';
       else if (category === 'Server')                                  normalized = 'Server';
@@ -97,7 +97,7 @@ const [isModalOpen, setIsModalOpen]             = useState(false);
         if (filter === 'Tous') return true;
         const category = service.category || service.type || '';
         if (filter === 'IMEI')    return category === 'IMEI' || category === 'Déverrouillage IMEI';
-        if (filter === 'License') return category === 'License' || category === 'Licence';
+        if (filter === 'Credit')  return category === 'Credit' || category === 'License' || category === 'Licence';
         if (filter === 'Rental')  return category === 'Rental' || category === 'Remote';
         if (filter === 'Server')  return category === 'Server';
         return true;
@@ -145,9 +145,9 @@ const [isModalOpen, setIsModalOpen]             = useState(false);
 
   const categories = [
     { id: 'IMEI',    label: 'Services IMEI',      icon: Smartphone, color: 'from-blue-500 to-cyan-500',    description: 'Déblocage et vérification par IMEI' },
-    { id: 'Server',  label: 'Services Serveur',    icon: Server,     color: 'from-orange-500 to-red-500',   description: 'Les services d\'activation de License' },
+    { id: 'Server',  label: 'Services Serveur',    icon: Server,     color: 'from-orange-500 to-red-500',   description: 'Les services d\'activation de compte' },
     { id: 'Rental',  label: 'Location & Remote',   icon: Wifi,       color: 'from-purple-500 to-pink-500',  description: 'Les services de location ' },
-    { id: 'License', label: 'Licences',            icon: Key,        color: 'from-green-500 to-emerald-500',description: "Les services de recharge de credit compte" },
+    { id: 'Credit',  label: 'Crédits',             icon: Key,        color: 'from-green-500 to-emerald-500',description: "Les services de recharge de crédits logiciels" },
   ];
 
   const filterTabs = [

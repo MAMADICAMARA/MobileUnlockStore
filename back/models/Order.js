@@ -18,7 +18,7 @@ const OrderSchema = new mongoose.Schema({
     price: Number,
     category: {
       type: String,
-      enum: ['IMEI', 'Server', 'Rental', 'License'],
+      enum: ['IMEI', 'Server', 'Rental', 'Credit'],
       required: true,
       index: true,
     }

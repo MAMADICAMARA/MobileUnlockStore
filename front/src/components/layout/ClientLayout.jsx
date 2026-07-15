@@ -30,7 +30,7 @@ const buildNav = (role, isEmployee) => [
       { to: `/${role}/services/IMEI`,    icon: Smartphone, label: 'Service IMEI' },
       { to: `/${role}/services/Server`,  icon: Server,     label: 'Service Serveur' },
       { to: `/${role}/services/Rental`,  icon: Globe,      label: 'Service Location' },
-      { to: `/${role}/services/License`, icon: Key,        label: 'Service Licence' },
+      { to: `/${role}/services/Credit`,  icon: Key,        label: 'Service Crédit' },
     ],
   },
 
@@ -44,7 +44,7 @@ const buildNav = (role, isEmployee) => [
       { to: `/${role}/orders?category=imei`,        icon: Smartphone,  label: 'Commandes IMEI' },
       { to: `/${role}/orders?category=serveur`,     icon: Server,      label: 'Commandes Serveur' },
       { to: `/${role}/orders?category=remote`,      icon: Globe,       label: 'Commandes Location' },
-      { to: `/${role}/orders?category=licences`,    icon: Key,         label: 'Commandes Licence' },
+      { to: `/${role}/orders?category=credit`,       icon: Key,         label: 'Commandes Crédit' },
     ],
   },
 
