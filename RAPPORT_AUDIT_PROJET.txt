@@ -1,0 +1,333 @@
+================================================================================
+RAPPORT D'AUDIT COMPLET - MobileUnlockStore
+Date : 15 juillet 2026
+Perimetre : back/ (Node.js/Express/MongoDB) + front/ (React/Vite)
+================================================================================
+
+RESUME EXECUTIF
+================================================================================
+Cet audit couvre trois axes : securite, architecture/qualite backend,
+architecture/qualite frontend. Le projet est globalement fonctionnel et les
+fonctionnalites developpees recemment (2FA, paiements, commandes, gestion des
+services) ont ete testees et marchent. Cependant, l'audit revele :
+
+  - 1 probleme CRITIQUE deja connu et non resolu : secrets exposes dans
+    l'historique Git (back/.env), qui bloque actuellement le push vers GitHub.
+  - 2 bugs backend qui cassent des fonctionnalites en PRODUCTION (500 sur
+    3 endpoints admin, routes employe/profil entierement absentes).
+  - 1 bug frontend qui casse une page en PRODUCTION (page mot de passe oublie).
+  - Plusieurs failles de securite a corriger (NoSQL injection potentielle,
+    donnees sensibles stockees en clair, dependances vulnerables).
+  - De la dette technique (code mort, doublons, incoherences) sans impact
+    utilisateur immediat mais qui merite un nettoyage.
+
+Ordre de priorite recommande en fin de rapport (section 6).
+
+
+================================================================================
+1. PROBLEME LE PLUS URGENT (deja identifie, toujours non resolu)
+================================================================================
+
+1.1 SECRETS EXPOSES DANS GIT (back/.env)
+------------------------------------------------------------------------------
+- back/.env est suivi par Git depuis le debut du projet. Un JWT_SECRET et un
+  MONGO_URI (avec identifiants) ont deja ete pousses sur origin/main (commit
+  de juin 2026), donc potentiellement deja visibles si le depot GitHub est
+  public.
+- Une tentative de .gitignore en fevrier 2026 a echoue (fichier encode en
+  UTF-16LE au lieu d'UTF-8, donc ignore par Git) puis a ete supprimee sans
+  etre corrigee.
+- Une nouvelle cle Brevo/Sendinblue a ete bloquee par GitHub Push Protection
+  lors d'un push recent : c'est ce qui a revele le probleme.
+
+ACTIONS RECOMMANDEES (non executees, en attente de votre confirmation) :
+  1. Retirer back/.env du suivi Git (git rm --cached back/.env).
+  2. Ajouter un .gitignore correct (encodage UTF-8) incluant back/.env.
+  3. Si le depot est PUBLIC : les secrets deja pousses (MONGO_URI, JWT_SECRET)
+     doivent etre consideres comme compromis -> rotation obligatoire du
+     mot de passe MongoDB et du JWT_SECRET, meme apres nettoyage de
+     l'historique.
+  4. Si le depot est PRIVE : risque plus faible mais rotation quand meme
+     recommandee par prudence, et nettoyage de l'historique (BFG / git
+     filter-repo) a envisager si vous comptez le rendre public un jour.
+
+  Je n'ai encore rien execute sur ce point : il me faut votre confirmation
+  (repo public ou prive ?) avant toute action, car reecrire l'historique
+  Git est une operation destructive/irreversible sur les commits partages.
+
+
+================================================================================
+2. BUGS FONCTIONNELS EN PRODUCTION (a corriger en priorite apres le point 1)
+================================================================================
+
+2.1 BACKEND - 3 endpoints admin plantent (500) : populate() sur mauvais champ
+------------------------------------------------------------------------------
+Fichier : back/routes/adminRoutes.js
+
+Les handlers GET /api/admin/payments, GET /api/admin/licenses et
+GET /api/admin/tickets appellent :
+    .populate('userId', ...)
+
+Mais dans les modeles reels (Payment.js, License.js, Ticket.js), le champ
+s'appelle "user", pas "userId". Sous Mongoose 8 (strictPopulate: true par
+defaut), cela leve une StrictPopulateError -> reponse 500.
+
+Impact concret : la page admin "Paiements", "Licences" et "Tickets" ne
+peuvent pas charger leurs listes.
+
+Correction : remplacer .populate('userId', ...) par .populate('user', ...)
+dans les 3 handlers concernes.
+
+2.2 BACKEND - Routes employe et profil client jamais montees
+------------------------------------------------------------------------------
+Fichier : back/app.js (ou index/server.js)
+
+userRoutes.js et employeeRoutes.js existent dans le code mais sont
+commentes (non appeles via app.use(...)) dans le fichier principal. Consequence :
+  - Aucune route de mise a jour de profil / changement de mot de passe
+    cote client ne fonctionne (si elles dependent de userRoutes.js -
+    a verifier au cas par cas, certaines routes profil peuvent exister
+    ailleurs).
+  - Tout le backend du tableau de bord employe (employeeRoutes.js) est
+    inaccessible : aucun endpoint ne repond.
+
+A verifier avec vous : est-ce voulu (fonctionnalite en pause) ou un oubli ?
+Si c'est un oubli, il suffit de decommenter les app.use(...) correspondants
+dans app.js - mais il faut d'abord verifier que les controllers derriere
+sont a jour et compatibles avec le reste du code actuel avant de les
+reactiver, pour ne rien casser.
+
+2.3 FRONTEND - Page "mot de passe oublie" plante au chargement
+------------------------------------------------------------------------------
+Fichier : front/src/pages/auth/ResetPasswordPage.jsx
+Route : /forgot-password (App.jsx:115)
+
+Le fichier utilise <Header /> (ligne 99) et <Footer /> (ligne 214) dans le
+JSX, mais aucun des deux composants n'est importe. Il appelle aussi
+navigate('/login') (ligne 86) sans avoir importe/instancie useNavigate.
+
+Consequence : quiconque visite /forgot-password obtient un plantage React
+("Header is not defined"). Ce bug est invisible aux garde-fous actuels :
+ESLint ne detecte pas les identifiants JSX non definis (seulement
+navigate, via no-undef), et `vite build` ne fait pas de verification de
+types donc ne le voit pas non plus.
+
+Correction : ajouter les imports manquants (Header, Footer, useNavigate +
+appel du hook) dans ResetPasswordPage.jsx.
+
+
+================================================================================
+3. SECURITE
+================================================================================
+
+3.1 Dependances vulnerables (npm audit)
+------------------------------------------------------------------------------
+  - back/  : 1 vulnerabilite HIGH, 0 critique.
+  - front/ : 12 HIGH, 6 MODERATE, 1 LOW, 0 critique.
+  Packages concernes notamment : axios, react-router-dom, nodemailer (a
+  verifier precisement avec `npm audit` pour le detail version par version
+  avant de lancer `npm audit fix`, certaines corrections majeures peuvent
+  casser des API utilisees dans le code).
+
+3.2 Risque d'injection NoSQL sur les endpoints d'authentification
+------------------------------------------------------------------------------
+Les champs du body (email, code, etc.) ne sont pas systematiquement valides
+en type avant d'etre injectes dans les requetes Mongoose. Un attaquant
+pourrait envoyer un objet ({"$ne": null} etc.) au lieu d'une chaine sur
+certains endpoints d'auth, ce qui peut, selon la requete, contourner une
+condition. A verifier/corriger avec une validation de type stricte
+(ex: express-validator ou simple typeof check) sur tous les champs venant
+de req.body avant usage dans une requete Mongo.
+
+3.3 Donnees sensibles stockees en clair
+------------------------------------------------------------------------------
+  - back/models/Order.js : le champ deliveryData (Map) stocke en clair les
+    identifiants (username/password) que l'admin envoie au client pour les
+    commandes de type Location/Remote (fonctionnalite ajoutee cette session).
+    Ce sont des identifiants de comptes tiers loues, donc sensibles.
+  - Les cles de licence (License.js) semblent egalement stockees en clair.
+  Recommandation : au minimum chiffrer ces champs au repos (ex:
+  chiffrement applicatif AES avant sauvegarde, dechiffrement a la lecture
+  admin), ou au moins restreindre strictement l'acces en lecture API a
+  l'admin proprietaire de la commande + au client concerne uniquement
+  (a verifier que c'est deja le cas cote controleur).
+
+3.4 JWT stocke dans localStorage
+------------------------------------------------------------------------------
+Pattern courant mais expose aux attaques XSS (un script injecte peut lire
+le token). Pas un bug urgent vu qu'aucune faille XSS n'a ete trouvee dans
+l'audit, mais a garder en tete : une migration vers un cookie httpOnly
+serait plus robuste a moyen terme.
+
+3.5 Upload d'images en base64 non valide
+------------------------------------------------------------------------------
+Les uploads d'images (services, etc.) acceptent des chaines base64 sans
+validation stricte du type MIME reel ni de la taille cote serveur (la
+limite de 5MB n'est verifiee que cote frontend, dans ServiceModal.jsx et
+OrderDetailPage.jsx - contournable en appelant l'API directement).
+Recommandation : ajouter une validation de taille et de type cote backend
+egalement.
+
+3.6 Fuite de details d'erreur au client
+------------------------------------------------------------------------------
+Certains handlers d'erreurs globaux renvoient le message d'erreur brut
+(potentiellement des details internes/stack) directement dans la reponse
+JSON. A limiter en production a un message generique, avec le detail
+uniquement logge cote serveur.
+
+3.7 CORS
+------------------------------------------------------------------------------
+Configuration CORS redondante/incoherente a plusieurs endroits du code
+(plusieurs couches qui se chevauchent). Pas une faille en soi mais source
+de confusion et de bugs futurs - a consolider en un seul point de
+configuration.
+
+3.8 Points verifies OK (pas de probleme trouve)
+------------------------------------------------------------------------------
+  - Aucun usage de eval/exec dangereux.
+  - Aucun autre secret code en dur trouve au-dela de ceux deja connus.
+  - bcrypt utilise correctement pour le hachage des mots de passe.
+  - Middleware protect/admin applique de facon coherente sur les routes
+    qui en ont besoin.
+
+
+================================================================================
+4. BACKEND - QUALITE / ARCHITECTURE
+================================================================================
+
+4.1 Code mort
+------------------------------------------------------------------------------
+  - back/controllers/serviceController.js : createService/updateService ne
+    sont pas branches (les vraies routes admin services sont des handlers
+    inline dans adminRoutes.js).
+  - back/controllers/orderController.js : non requis par aucune route.
+  - 3 autres controleurs identifies comme morts par l'audit (non branches
+    a une route active).
+  Recommandation : soit les supprimer, soit les brancher si l'intention
+  etait de les utiliser - a clarifier avec vous avant suppression.
+
+4.2 Incoherence de forme des reponses API
+------------------------------------------------------------------------------
+Environ 24% des reponses API ne suivent pas l'enveloppe standard
+{ success, data, message } utilisee par le reste du projet. Cela complique
+la gestion d'erreur cote frontend (obligation de gerer plusieurs formats).
+Pas urgent, mais a corriger progressivement pour homogeneiser.
+
+4.3 Variables d'environnement
+------------------------------------------------------------------------------
+Certaines variables d'environnement sont utilisees dans le code sans etre
+documentees/presentes dans un .env.example, et inversement certaines
+variables definies ne semblent plus utilisees. A auditer et nettoyer une
+fois le sujet "secrets Git" (section 1.1) resolu.
+
+
+================================================================================
+5. FRONTEND - QUALITE / ARCHITECTURE
+================================================================================
+
+5.1 Lint : 47 erreurs, 4 avertissements sur 30 fichiers (89 analyses)
+------------------------------------------------------------------------------
+Grande majorite = variables/imports inutilises (no-unused-vars), sans
+impact fonctionnel mais a nettoyer. Liste complete disponible sur demande.
+Le seul cas ayant une vraie consequence fonctionnelle est deja traite en
+section 2.3 (ResetPasswordPage.jsx).
+
+Deux avertissements react-hooks/exhaustive-deps a surveiller :
+  - components/ServiceModal.jsx:88 (getFormFields manquant des deps)
+  - pages/admin/AdminAdminsPage.jsx:33 (filterAdmins manquant des deps)
+Ces deux-la peuvent occasionnellement causer un affichage legerement
+desynchronise (donnees pas rafraichies au bon moment) - a surveiller mais
+pas de bug constate a ce jour.
+
+Deux exports qui cassent le Fast Refresh de Vite (dev uniquement, aucun
+impact production) :
+  - context/NotificationContext.jsx:28
+  - context/SystemContext.jsx:75
+
+5.2 Build
+------------------------------------------------------------------------------
+`npx vite build` reussit (exit 0). Seul avertissement : un chunk JS unique
+de 1067 KB (292 KB gzip), au-dessus du seuil recommande de 500KB - aucun
+code-splitting configure. Pas bloquant, mais impacte le temps de
+chargement initial. A ameliorer avec du lazy-loading de routes
+(React.lazy + Suspense) si les performances de chargement deviennent un
+sujet.
+
+5.3 Composants dupliques
+------------------------------------------------------------------------------
+  - components/CodeVerificationModal.jsx VS
+    pages/auth/CodeVerificationModal.jsx : deux implementations quasi
+    identiques (memes props, meme logique). Seule celle de pages/auth/ est
+    reellement utilisee (via CodeVerificationPage.jsx). L'autre n'est
+    reference que dans des commentaires - candidate a la suppression.
+  - components/ServiceModal.jsx VS components/admin/ServiceForm.jsx :
+    logiques similaires (upload image, limite 5MB, champs personnalises) -
+    a surveiller pour eviter que les deux divergent avec le temps.
+  - pages/client/AddFundsPage.jsx VS pages/client/ajout de fond.jsx : la
+    seconde est un fichier mort (deja identifie en amont de cette
+    session), non importee nulle part - candidate a la suppression.
+
+5.4 Accessibilite
+------------------------------------------------------------------------------
+  - Toutes les balises <img> echantillonnees ont un attribut alt : OK.
+  - Plusieurs boutons icone-seule sans aria-label (bouton fermer/menu dans
+    ServiceModal.jsx, ClientLayout.jsx, AdminLayout.jsx, ServicesPage.jsx).
+    Le pattern existe deja et est bien applique ailleurs (fleches carrousel
+    HomePage.jsx avec aria-label="Precedent"/"Suivant") - juste a
+    generaliser aux boutons manquants.
+
+5.5 Valeurs codees en dur redondantes
+------------------------------------------------------------------------------
+  - URL de fallback "http://localhost:5000" dupliquee independamment dans
+    AuthContext.jsx et services/api.js.
+  - Limite de taille fichier 5MB dupliquee dans ServiceModal.jsx et
+    OrderDetailPage.jsx.
+  - Timeout "copie" de 2000ms duplique dans 3 fichiers admin/client.
+  Aucun risque immediat, mais si la valeur doit changer un jour il faudra
+  penser a la modifier partout - candidat a une constante partagee
+  (ex: src/config/constants.js).
+
+5.6 console.log en production
+------------------------------------------------------------------------------
+16 console.log actifs (non commentes) dans 7 fichiers, dont :
+  - authService.js (6 logs prefixes [PAUSE], lies au flux OTP)
+  - AuthContext.jsx (2 logs de debug login/role)
+  - services/api.js (log de l'URL de base a chaque chargement)
+  - main.jsx (log de montage React)
+  - AdminChangeRolePage.jsx, AdminRechargeUserPage.jsx, NotificationBell.jsx
+  Aucun n'est dans un bloc catch (donc pas de fuite d'erreur silencieuse),
+  mais ce sont des logs de debug oublies en code de production. A retirer
+  ou passer derriere un flag DEBUG avant mise en production finale.
+
+
+================================================================================
+6. RECOMMANDATIONS - ORDRE DE PRIORITE SUGGERE
+================================================================================
+Rien ci-dessous n'a ete modifie automatiquement : ceci est un rapport de
+constat. Dites-moi lesquels vous voulez que je traite et je les
+implementerai un par un, avec verification a chaque etape.
+
+  1. [SECURITE - URGENT] Confirmer public/prive pour le depot GitHub, puis
+     nettoyer back/.env de Git + roter les secrets (section 1.1).
+  2. [BUG PROD] Corriger le ResetPasswordPage.jsx qui plante entierement
+     la page /forgot-password (section 2.3) - correctif tres rapide, fort
+     impact utilisateur.
+  3. [BUG PROD] Corriger les 3 populate('userId'->'user') dans
+     adminRoutes.js qui cassent les pages admin Paiements/Licences/Tickets
+     (section 2.1) - correctif tres rapide, fort impact admin.
+  4. [A CLARIFIER] Discuter avec vous du statut de userRoutes.js /
+     employeeRoutes.js non montees (section 2.2) : oubli ou volontaire ?
+  5. [SECURITE] Validation de type sur les champs d'authentification
+     (NoSQL injection, section 3.2) et validation backend des uploads
+     images (section 3.5).
+  6. [SECURITE] Chiffrement des identifiants stockes dans
+     Order.deliveryData et des cles de licence (section 3.3).
+  7. [MAINTENANCE] npm audit fix cible (verifier chaque changement majeur
+     avant de l'appliquer), nettoyage du code mort backend/frontend,
+     suppression des doublons identifies, nettoyage des console.log.
+  8. [AMELIORATION] Code-splitting frontend (lazy loading des routes) pour
+     reduire le chunk de 1MB.
+
+================================================================================
+FIN DU RAPPORT
+================================================================================

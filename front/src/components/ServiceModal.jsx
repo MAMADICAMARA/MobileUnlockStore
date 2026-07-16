@@ -232,7 +232,7 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
       setStep(3);
       setTimeout(onClose, 2500);
     } catch (err) {
-      setError(err.response?.data?.message || err.response?.data?.error || 'Une erreur est survenue.');
+      setError(err.response?.data?.message || err.response?.data?.error || 'veillez entrer une quantité superieur ou égal a la quantité minimal');
       setStep(1);
     } finally {
       setLoading(false);
@@ -473,6 +473,15 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
                   Annuler
                 </button>
                 <button
+        type="button"
+        onClick={handleNext}
+        disabled={!isBalanceSufficient || (category === 'Credit' && effectiveQty < qtyMin)}
+        className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium flex items-center justify-center gap-2 group"
+      >
+        Continuer
+        <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </button>
+                {/* <button
                   type="button"
                   onClick={handleNext}
                   disabled={!isBalanceSufficient}
@@ -480,7 +489,7 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
                 >
                   Continuer
                   <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </button>
+                </button> */}
               </div>
             </div>
           )}
@@ -511,7 +520,7 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
                       </div>
                     );
                   })}
-                  {quantityFieldDef && effectiveQty > 1 && (
+                  {quantityFieldDef && effectiveQty > qtyMin && (
                     <div className="flex justify-between">
                       <dt className="font-medium text-gray-900 dark:text-white">Total</dt>
                       <dd className="font-bold text-green-600 dark:text-green-400">{fmtFG(totalPrice)} FG</dd>
@@ -535,7 +544,7 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  disabled={loading}
+                  disabled={loading || !isBalanceSufficient || effectiveQty < qtyMin}
                   className="flex-1 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all text-sm font-medium"
                 >
                   {loading ? (

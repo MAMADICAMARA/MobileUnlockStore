@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff, LogIn, Shield, KeyRound } from 'lucide-react';
+import Header from '../../components/Header';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../services/api';
 import systemService from '../../services/systemService';
@@ -97,6 +98,7 @@ const LoginPage = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-10">
+     
       <div className="w-full max-w-md">
 
         {/* Logo / titre */}
