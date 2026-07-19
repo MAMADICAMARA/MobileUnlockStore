@@ -14,14 +14,23 @@ import {
 // ─── Structure du menu en sections ───────────────────────────────────────────
 
 const buildNav = (role, isEmployee) => [
+  
   // ── Section principale ──
   {
     section: null,
     items: [
+      { to: '/', icon: Home, label: 'Accueil' },
       { to: `/${role}/dashboard`, icon: LayoutDashboard, label: 'Tableau de bord' },
       ...(isEmployee ? [{ to: '/employee/works', icon: Briefcase, label: 'Mes Travaux' }] : []),
     ],
   },
+  // {
+  //   section: null,
+  //   items: [
+  //     { to: `/${role}/dashboard`, icon: LayoutDashboard, label: 'Tableau de bord' },
+  //     ...(isEmployee ? [{ to: '/employee/works', icon: Briefcase, label: 'Mes Travaux' }] : []),
+  //   ],
+  // },
 
   // ── Commander ──
   {

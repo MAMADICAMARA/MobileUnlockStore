@@ -25,32 +25,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 
 // Données fictives pour les témoignages
-const testimonials = [
-  {
-    id: 1,
-    name: 'Jean Dupont',
-    role: 'Client depuis 2024',
-    quote: 'Service ultra-rapide et efficace. Mon téléphone a été débloqué en moins de 10 minutes. Je recommande vivement !',
-    avatar: 'https://ui-avatars.com/api/?name=Jean+Dupont&background=3b82f6&color=fff&size=150',
-    rating: 5
-  },
-  {
-    id: 2,
-    name: 'Marie Curie',
-    role: 'Cliente professionnelle',
-    quote: 'Le support client est exceptionnel. Ils m\'ont guidée pas à pas pour l\'activation de ma licence. Très professionnel.',
-    avatar: 'https://ui-avatars.com/api/?name=Marie+Curie&background=8b5cf6&color=fff&size=150',
-    rating: 5
-  },
-  {
-    id: 3,
-    name: 'Pierre Martin',
-    role: 'Utilisateur vérifié',
-    quote: 'Enfin un service fiable et sécurisé. J\'avais des doutes au début, mais tout s\'est parfaitement déroulé.',
-    avatar: 'https://ui-avatars.com/api/?name=Pierre+Martin&background=ec4899&color=fff&size=150',
-    rating: 5
-  }
-];
+
 
 const sliderImages = [
   {
@@ -364,121 +339,8 @@ const HomePage = () => {
           </div>
         </section>
 
-        {/* Section Avantages */}
-        <section className="py-20 bg-white dark:bg-slate-800">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-              <div>
-                <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
-                  Pourquoi choisir notre{' '}
-                  <span className="bg-gradient-to-r from-blue-500 to-purple-500 text-transparent bg-clip-text">
-                    solution ?
-                  </span>
-                </h2>
-                
-                <div className="space-y-6">
-                  {[
-                    {
-                      icon: Shield,
-                      title: 'Sécurité Garantie',
-                      description: 'Vos données et votre appareil sont traités avec le plus grand soin et en toute confidentialité.'
-                    },
-                    {
-                      icon: Zap,
-                      title: 'Rapidité d\'Exécution',
-                      description: 'La plupart de nos services sont traités en quelques minutes pour un résultat quasi instantané.'
-                    },
-                    {
-                      icon: Headphones,
-                      title: 'Support Professionnel',
-                      description: 'Notre équipe est disponible pour répondre à toutes vos questions et vous assister à chaque étape.'
-                    }
-                  ].map((item, idx) => (
-                    <div key={idx} className="flex gap-4 group">
-                      <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <item.icon className="w-6 h-6 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                          {item.title}
-                        </h3>
-                        <p className="text-gray-600 dark:text-gray-400">
-                          {item.description}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Image ou illustration */}
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-3xl blur-3xl opacity-20 animate-pulse"></div>
-                <img
-                  src="https://images.unsplash.com/photo-1563013544-824ae1b704d3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-                  alt="Support client"
-                  className="relative rounded-3xl shadow-2xl w-full h-auto"
-                />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Section Témoignages */}
-        <section className="py-20 bg-gray-50 dark:bg-slate-900">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
-                Ce que disent nos clients
-              </h2>
-              <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
-                Des milliers de clients satisfaits nous font confiance
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {testimonials.map((testimonial) => (
-                <div
-                  key={testimonial.id}
-                  className="group relative bg-white dark:bg-slate-800 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-2"
-                >
-                  {/* Quote mark */}
-                  <div className="absolute top-6 right-6 text-6xl text-gray-200 dark:text-gray-700">"</div>
-
-                  {/* Stars */}
-                  <div className="flex gap-1 mb-4">
-                    {[...Array(testimonial.rating)].map((_, i) => (
-                      <Star key={i} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-                    ))}
-                  </div>
-
-                  <p className="text-gray-600 dark:text-gray-400 mb-6 relative z-10">
-                    "{testimonial.quote}"
-                  </p>
-
-                  <div className="flex items-center gap-4">
-                    <img
-                      src={testimonial.avatar}
-                      alt={testimonial.name}
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
-                    <div>
-                      <p className="font-bold text-gray-900 dark:text-white">
-                        {testimonial.name}
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-500">
-                        {testimonial.role}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Effet de glow */}
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500 to-purple-500 opacity-0 group-hover:opacity-5 transition-opacity"></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+        
+        
 
         {/* Section CTA */}
         <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-600 relative overflow-hidden">
