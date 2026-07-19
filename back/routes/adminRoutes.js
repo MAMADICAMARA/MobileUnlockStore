@@ -113,7 +113,6 @@ router.post('/recharge-balance', protect, admin, async (req, res) => {
       return res.status(404).json({ error: "Cet email n'existe pas" });
     }
 
-    // Corriger le rôle invalide si nécessaire
     const validRoles = ['client', 'admin', 'utilisateur-employer'];
     const updateOp = { $inc: { balance: parsedAmount } };
     if (!validRoles.includes(user.role)) {
@@ -121,7 +120,6 @@ router.post('/recharge-balance', protect, admin, async (req, res) => {
       updateOp.$set = { role: 'client' };
     }
 
-    // $inc atomique — pas de race condition
     const updatedUser = await User.findByIdAndUpdate(user._id, updateOp, { new: true });
 
     await createNotification({
@@ -163,27 +161,36 @@ router.get('/services/:id', protect, admin, async (req, res) => {
   }
 });
 
+// ✅ CORRIGÉ : minQuantity et maxQuantity ajoutés
 router.post('/services', protect, admin, async (req, res) => {
   try {
     const {
       name, description, price, category, deliveryTime,
       imageUrl, instructions, active, fieldsRequired, metadata,
+      minQuantity, maxQuantity,
     } = req.body;
+
     const service = await Service.create({
       name, description, price, category, deliveryTime,
       imageUrl, instructions, active, fieldsRequired, metadata,
+      minQuantity: category === 'Credit' ? (Number(minQuantity) || 10) : 1,
+      maxQuantity: category === 'Credit' ? (Number(maxQuantity) || 100) : 0,
     });
+
     res.status(201).json(service);
   } catch (error) {
+    console.error('Erreur création service:', error);
     res.status(500).json({ error: 'Erreur lors de la création du service' });
   }
 });
 
+// ✅ CORRIGÉ : minQuantity et maxQuantity ajoutés
 router.put('/services/:id', protect, admin, async (req, res) => {
   try {
     const {
       name, description, price, category, deliveryTime,
       imageUrl, instructions, active, fieldsRequired, metadata,
+      minQuantity, maxQuantity,
     } = req.body;
 
     const updateData = {};
@@ -197,6 +204,9 @@ router.put('/services/:id', protect, admin, async (req, res) => {
     if (active !== undefined)         updateData.active = active;
     if (fieldsRequired !== undefined) updateData.fieldsRequired = fieldsRequired;
     if (metadata !== undefined)       updateData.metadata = metadata;
+    // ✅ Stocker directement dans le modèle Service
+    if (minQuantity !== undefined)    updateData.minQuantity = Number(minQuantity) || 1;
+    if (maxQuantity !== undefined)    updateData.maxQuantity = Number(maxQuantity) || 0;
 
     const service = await Service.findByIdAndUpdate(
       req.params.id,
@@ -206,6 +216,7 @@ router.put('/services/:id', protect, admin, async (req, res) => {
     if (!service) return res.status(404).json({ error: 'Service non trouvé' });
     res.json(service);
   } catch (error) {
+    console.error('Erreur mise à jour service:', error);
     res.status(500).json({ error: 'Erreur lors de la mise à jour du service' });
   }
 });
@@ -261,7 +272,6 @@ router.put('/orders/:id/status', protect, admin, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Statut requis' });
     }
 
-    // ✅ Cas annulation : verrou optimiste — un seul admin peut réussir
     if (status === 'Annulé') {
       const cancelled = await Order.findOneAndUpdate(
         { _id: req.params.id, status: { $nin: ['Annulé', 'Remboursé'] } },
@@ -277,7 +287,6 @@ router.put('/orders/:id/status', protect, admin, async (req, res) => {
         return res.status(409).json({ success: false, message: 'Commande déjà annulée ou remboursée' });
       }
 
-      // ✅ Remboursement atomique avec $inc
       const refundAmount = cancelled.amount || cancelled.serviceDetails?.price || 0;
       if (refundAmount > 0 && cancelled.userId) {
         await User.findByIdAndUpdate(
@@ -295,7 +304,6 @@ router.put('/orders/:id/status', protect, admin, async (req, res) => {
       return res.json({ success: true, data: cancelled });
     }
 
-    // ✅ Cas non-annulation : mise à jour simple
     const order = await Order.findByIdAndUpdate(
       req.params.id,
       { $set: { status } },
@@ -309,8 +317,8 @@ router.put('/orders/:id/status', protect, admin, async (req, res) => {
 
     if (order.userId?._id) {
       const statusMessages = {
-        'En cours':   { title: '⚙️ Commande en cours',   message: `Votre commande "${order.serviceId?.name || 'Service'}" est en cours de traitement.`,  type: 'info' },
-        'Terminé':    { title: '✅ Commande terminée',    message: `Votre commande "${order.serviceId?.name || 'Service'}" a été complétée avec succès !`, type: 'success' },
+        'En cours': { title: '⚙️ Commande en cours',  message: `Votre commande "${order.serviceId?.name || 'Service'}" est en cours de traitement.`,  type: 'info' },
+        'Terminé':  { title: '✅ Commande terminée',   message: `Votre commande "${order.serviceId?.name || 'Service'}" a été complétée avec succès !`, type: 'success' },
       };
       const notif = statusMessages[status];
       if (notif) await createNotification({ userId: order.userId._id, ...notif });
@@ -366,7 +374,6 @@ router.get('/dashboard-stats', protect, admin, async (req, res) => {
     const completed  = allOrders.filter(o => o.status === 'Terminé').length;
     const inProgress = allOrders.filter(o => o.status === 'En cours').length;
 
-    // ✅ amount en priorité (montant réel débité, inclut les licences avec quantité)
     const revenue = allOrders
       .filter(o => o.status === 'Terminé')
       .reduce((sum, o) => sum + (o.amount || o.serviceDetails?.price || 0), 0);
@@ -402,18 +409,17 @@ router.post('/refund', protect, admin, async (req, res) => {
       return res.status(400).json({ success: false, message: 'ID de commande requis' });
     }
 
-    // ✅ Verrou optimiste : change le statut vers 'Remboursé' UNIQUEMENT si 'Terminé'
     const refunded = await Order.findOneAndUpdate(
       { _id: orderId, status: 'Terminé' },
       {
         $set: {
-          status:       'Remboursé',   // ✅ 'Remboursé' et non 'Annulé'
+          status:       'Remboursé',
           refundReason: refundReason || 'Litige technique — service non rendu',
           refundedAt:   new Date(),
           refundedBy:   req.user.id || req.user._id,
         },
       },
-      { new: false } // ancien document pour lire le montant avant modification
+      { new: false }
     );
 
     if (!refunded) {
@@ -428,7 +434,6 @@ router.post('/refund', protect, admin, async (req, res) => {
       });
     }
 
-    // ✅ Crédit atomique avec $inc
     const refundAmount = refunded.amount || refunded.serviceDetails?.price || 0;
     if (refundAmount <= 0) {
       return res.status(400).json({ success: false, message: 'Montant de remboursement invalide' });
@@ -461,13 +466,7 @@ router.post('/refund', protect, admin, async (req, res) => {
   }
 });
 
-
 // ─── Recherche commandes ──────────────────────────────────────────────────────
-
-// Recherche par ID MongoDB (déjà géré par getOrderById via orderRoutes)
-// GET /api/orders/admin/:id — déjà existant dans orderRoutes.js
-
-// Recherche par email client
 router.get('/orders/by-email/:email', protect, admin, async (req, res) => {
   try {
     const users = await User.find({ email: new RegExp(req.params.email, 'i') }).select('_id');
@@ -485,7 +484,6 @@ router.get('/orders/by-email/:email', protect, admin, async (req, res) => {
   }
 });
 
-// Recherche par transactionId
 router.get('/orders/transaction/:txId', protect, admin, async (req, res) => {
   try {
     const order = await Order.findOne({ transactionId: req.params.txId })
@@ -499,7 +497,6 @@ router.get('/orders/transaction/:txId', protect, admin, async (req, res) => {
   }
 });
 
-// Recherche par IMEI (dans userSubmittedData)
 router.get('/orders/imei/:imei', protect, admin, async (req, res) => {
   try {
     const orders = await Order.find({ 'userSubmittedData.imei': req.params.imei })
@@ -514,10 +511,8 @@ router.get('/orders/imei/:imei', protect, admin, async (req, res) => {
   }
 });
 
-// Recherche par code commande (orderCode ou _id partiel)
 router.get('/orders/code/:code', protect, admin, async (req, res) => {
   try {
-    // Chercher par _id si c'est un ObjectId valide (24 hex)
     let order = null;
     if (/^[0-9a-fA-F]{24}$/.test(req.params.code)) {
       order = await Order.findById(req.params.code)
@@ -535,7 +530,6 @@ router.get('/orders/code/:code', protect, admin, async (req, res) => {
 });
 
 module.exports = router;
-
 // // back/routes/adminRoutes.js
 // const express      = require('express');
 // const router       = express.Router();
@@ -561,8 +555,25 @@ module.exports = router;
 // // ─── Utilisateurs ─────────────────────────────────────────────────────────────
 // router.get('/users', protect, admin, async (req, res) => {
 //   try {
-//     const users = await User.find({});
-//     res.json(users);
+//     const page  = Math.max(1, parseInt(req.query.page)  || 1);
+//     const limit = Math.min(100, parseInt(req.query.limit) || 20);
+//     const skip  = (page - 1) * limit;
+
+//     const [users, total] = await Promise.all([
+//       User.find({}).sort({ createdAt: -1 }).skip(skip).limit(limit),
+//       User.countDocuments({}),
+//     ]);
+
+//     res.json({
+//       success: true,
+//       data:    users,
+//       pagination: {
+//         total,
+//         page,
+//         limit,
+//         pages: Math.ceil(total / limit),
+//       },
+//     });
 //   } catch (error) {
 //     res.status(500).json({ error: 'Erreur lors du chargement des utilisateurs' });
 //   }
@@ -743,11 +754,32 @@ module.exports = router;
 // // ─── Commandes ────────────────────────────────────────────────────────────────
 // router.get('/orders', protect, admin, async (req, res) => {
 //   try {
-//     const orders = await Order.find({})
-//       .populate('userId',    'name email role balance isActive employeeCode createdAt')
-//       .populate('serviceId', 'name category price')
-//       .lean();
-//     res.json({ success: true, count: orders.length, data: orders });
+//     const page  = Math.max(1, parseInt(req.query.page)  || 1);
+//     const limit = Math.min(100, parseInt(req.query.limit) || 20);
+//     const skip  = (page - 1) * limit;
+
+//     const [orders, total] = await Promise.all([
+//       Order.find({})
+//         .populate('userId',    'name email role balance isActive employeeCode createdAt')
+//         .populate('serviceId', 'name category price')
+//         .sort({ createdAt: -1 })
+//         .skip(skip)
+//         .limit(limit)
+//         .lean(),
+//       Order.countDocuments({}),
+//     ]);
+
+//     res.json({
+//       success: true,
+//       count:   orders.length,
+//       data:    orders,
+//       pagination: {
+//         total,
+//         page,
+//         limit,
+//         pages: Math.ceil(total / limit),
+//       },
+//     });
 //   } catch (error) {
 //     console.error('Erreur chargement commandes:', error);
 //     res.status(500).json({ success: false, message: 'Erreur lors du chargement des commandes' });
@@ -809,7 +841,6 @@ module.exports = router;
 
 //     if (order.userId?._id) {
 //       const statusMessages = {
-//         'En attente': { title: '🕐 Commande en attente', message: `Votre commande "${order.serviceId?.name || 'Service'}" est en attente de traitement.`, type: 'info' },
 //         'En cours':   { title: '⚙️ Commande en cours',   message: `Votre commande "${order.serviceId?.name || 'Service'}" est en cours de traitement.`,  type: 'info' },
 //         'Terminé':    { title: '✅ Commande terminée',    message: `Votre commande "${order.serviceId?.name || 'Service'}" a été complétée avec succès !`, type: 'success' },
 //       };

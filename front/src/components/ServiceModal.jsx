@@ -1,25 +1,10 @@
 // src/components/ServiceModal.jsx
 import { useState, useEffect } from 'react';
 import {
-  X,
-  CreditCard,
-  AlertCircle,
-  CheckCircle,
-  Upload,
-  Smartphone,
-  Key,
-  Globe,
-  Clock,
-  FileText,
-  HelpCircle,
-  Info,
-  ChevronRight,
-  Loader,
-  Server,
-  Wifi,
-  ExternalLink,
-  Plus,
-  Minus,
+  X, CreditCard, AlertCircle, CheckCircle,
+  Smartphone, Key, Globe, Clock, FileText,
+  HelpCircle, Info, ChevronRight, Loader,
+  Server, Wifi, ExternalLink, Plus, Minus,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import serviceService from '../services/serviceService';
@@ -27,6 +12,9 @@ import orderService from '../services/orderService';
 import axios from 'axios';
 
 const fmtFG = (n) => new Intl.NumberFormat('fr-FR').format(n || 0);
+
+// ─── Constante globale : minimum absolu pour la catégorie Credit ──────────────
+const CREDIT_MIN_QUANTITY = 10;
 
 const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
   const { user, updateUserBalance } = useAuth();
@@ -43,9 +31,7 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
   const [step, setStep]                     = useState(1);
   const [modalVisible, setModalVisible]     = useState(false);
 
-  useEffect(() => {
-    setModalVisible(isOpen);
-  }, [isOpen]);
+  useEffect(() => { setModalVisible(isOpen); }, [isOpen]);
 
   useEffect(() => {
     if (!service) { setServiceDetails(null); return; }
@@ -65,9 +51,9 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
         const fields = getFormFields(data);
         const initial = {};
         fields.forEach(f => {
-          // Initialiser quantity à la valeur min si définie
           if (f.name === 'quantity' && f.type === 'number') {
-            initial[f.name] = f.min ?? f.defaultValue ?? 1;
+            // Initialiser à la valeur min issue du modèle
+            initial[f.name] = f.min ?? f.defaultValue ?? CREDIT_MIN_QUANTITY;
           } else {
             initial[f.name] = f.defaultValue ?? '';
           }
@@ -87,11 +73,11 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
   // ─── Catégorie ────────────────────────────────────────────────────────────
   const resolveCategory = (raw = '') => {
     const c = raw.toString().trim();
-    if (c.includes('IMEI'))                                              return 'IMEI';
-    if (c.includes('Server'))                                            return 'Server';
+    if (c.includes('IMEI'))                                                      return 'IMEI';
+    if (c.includes('Server'))                                                    return 'Server';
     if (c.includes('Credit') || c.includes('License') || c.includes('Licence')) return 'Credit';
-    if (c.includes('Rental'))                                            return 'Rental';
-    if (c.includes('Remote'))                                            return 'Remote';
+    if (c.includes('Rental'))                                                    return 'Rental';
+    if (c.includes('Remote'))                                                    return 'Remote';
     return 'IMEI';
   };
 
@@ -100,28 +86,55 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
 
   // ─── Thème par catégorie ──────────────────────────────────────────────────
   const themes = {
-    IMEI:   { icon: Smartphone, gradient: 'from-blue-500 to-cyan-500',     light: 'bg-blue-50 dark:bg-blue-900/20',     text: 'text-blue-600 dark:text-blue-400',     border: 'border-blue-200 dark:border-blue-800',     label: 'Déblocage IMEI' },
-    Credit: { icon: Key,        gradient: 'from-green-500 to-emerald-500', light: 'bg-green-50 dark:bg-green-900/20',   text: 'text-green-600 dark:text-green-400',   border: 'border-green-200 dark:border-green-800',   label: 'Crédit Logiciel' },
-    Server: { icon: Server,     gradient: 'from-orange-500 to-red-500',    light: 'bg-orange-50 dark:bg-orange-900/20', text: 'text-orange-600 dark:text-orange-400', border: 'border-orange-200 dark:border-orange-800', label: 'Service Serveur' },
-    Rental: { icon: Globe,      gradient: 'from-purple-500 to-pink-500',   light: 'bg-purple-50 dark:bg-purple-900/20', text: 'text-purple-600 dark:text-purple-400', border: 'border-purple-200 dark:border-purple-800', label: 'Location' },
-    Remote: { icon: Wifi,       gradient: 'from-indigo-500 to-purple-500', light: 'bg-indigo-50 dark:bg-indigo-900/20', text: 'text-indigo-600 dark:text-indigo-400', border: 'border-indigo-200 dark:border-indigo-800', label: 'Assistance Remote' },
+    IMEI:   { icon: Smartphone, gradient: 'from-blue-500 to-cyan-500',     light: 'bg-blue-50 dark:bg-blue-900/20',     text: 'text-blue-600 dark:text-blue-400',     border: 'border-blue-200 dark:border-blue-800' },
+    Credit: { icon: Key,        gradient: 'from-green-500 to-emerald-500', light: 'bg-green-50 dark:bg-green-900/20',   text: 'text-green-600 dark:text-green-400',   border: 'border-green-200 dark:border-green-800' },
+    Server: { icon: Server,     gradient: 'from-orange-500 to-red-500',    light: 'bg-orange-50 dark:bg-orange-900/20', text: 'text-orange-600 dark:text-orange-400', border: 'border-orange-200 dark:border-orange-800' },
+    Rental: { icon: Globe,      gradient: 'from-purple-500 to-pink-500',   light: 'bg-purple-50 dark:bg-purple-900/20', text: 'text-purple-600 dark:text-purple-400', border: 'border-purple-200 dark:border-purple-800' },
+    Remote: { icon: Wifi,       gradient: 'from-indigo-500 to-purple-500', light: 'bg-indigo-50 dark:bg-indigo-900/20', text: 'text-indigo-600 dark:text-indigo-400', border: 'border-indigo-200 dark:border-indigo-800' },
   };
 
   const theme = themes[category] || themes.IMEI;
   const Icon  = theme.icon;
 
+  // ─── Résolution du min/max depuis le modèle Service ───────────────────────
+  // Priorité : serviceDetails.minQuantity (du modèle MongoDB) > CREDIT_MIN_QUANTITY
+  const resolveQtyMin = () => {
+    if (category !== 'Credit') return 1;
+    const fromModel = serviceDetails?.minQuantity;
+    if (typeof fromModel === 'number' && fromModel >= 1) {
+      return Math.max(fromModel, CREDIT_MIN_QUANTITY); // jamais sous la constante globale
+    }
+    return CREDIT_MIN_QUANTITY;
+  };
+
+  const resolveQtyMax = () => {
+    if (category !== 'Credit') return undefined;
+    const fromModel = serviceDetails?.maxQuantity;
+    if (typeof fromModel === 'number' && fromModel > 0) return fromModel;
+    return undefined; // 0 ou absent = pas de limite
+  };
+
   // ─── Champs du formulaire ─────────────────────────────────────────────────
   const getFormFields = (svc) => {
+    const qMin = resolveQtyMin();
+    const qMax = resolveQtyMax();
+
     if (svc?.fieldsRequired?.length) {
-      // Pour la catégorie Credit : forcer min=10 sur le champ quantity
+      // Appliquer le min/max du modèle sur le champ quantity si l'admin l'a défini
       return svc.fieldsRequired.map(f => {
         if (f.name === 'quantity' && f.type === 'number' && category === 'Credit') {
-          return { ...f, min: Math.max(f.min ?? 1, 10), defaultValue: Math.max(f.defaultValue ?? 1, 10) };
+          return {
+            ...f,
+            min: qMin,
+            max: qMax,
+            defaultValue: Math.max(f.defaultValue ?? 1, qMin),
+          };
         }
         return f;
       });
     }
 
+    // Champs par défaut par catégorie
     const defaults = {
       IMEI: [
         { name: 'imei',     label: 'Numéro IMEI',            type: 'text',  required: true,  placeholder: '123456789012345', helpText: 'Composez *#06# pour obtenir votre IMEI', validation: { pattern: '^[0-9]{15}$', message: "L'IMEI doit contenir 15 chiffres" } },
@@ -132,8 +145,14 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
         { name: 'email',    label: 'Email (compte logiciel)',       type: 'email', required: true, placeholder: 'votre@email.com', helpText: 'Email utilisé pour ouvrir le compte logiciel' },
       ],
       Credit: [
-        { name: 'email',    label: 'Email de réception', type: 'email',  required: true,  placeholder: 'votre@email.com', helpText: 'Les identifiants seront envoyés ici' },
-        { name: 'quantity', label: 'Quantité',           type: 'number', required: true,  defaultValue: 10, min: 10, max: 100, helpText: 'Nombre de crédits souhaités (minimum 10)' },
+        { name: 'email',    label: 'Email de réception', type: 'email',  required: true, placeholder: 'votre@email.com', helpText: 'Les identifiants seront envoyés ici' },
+        {
+          name: 'quantity', label: 'Quantité', type: 'number', required: true,
+          defaultValue: qMin,
+          min: qMin,
+          max: qMax,
+          helpText: `Nombre de crédits souhaités (minimum ${qMin}${qMax ? `, maximum ${qMax}` : ''})`,
+        },
       ],
       Rental: [
         { name: 'notes', label: 'Notes (optionnel)', type: 'textarea', required: false, placeholder: 'Informations complémentaires...' },
@@ -151,9 +170,9 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
 
   // ─── Quantité / montant total ──────────────────────────────────────────────
   const quantityFieldDef = formFieldDefs.find(f => f.name === 'quantity' && f.type === 'number');
-  const qtyMin = quantityFieldDef?.min ?? 1;
-  const qtyMax = quantityFieldDef?.max;
-  const rawQty = quantityFieldDef ? parseInt(formFields.quantity, 10) : 1;
+  const qtyMin     = quantityFieldDef?.min ?? 1;
+  const qtyMax     = quantityFieldDef?.max;
+  const rawQty     = quantityFieldDef ? parseInt(formFields.quantity, 10) : 1;
   const effectiveQty = quantityFieldDef && Number.isFinite(rawQty) && rawQty >= qtyMin ? rawQty : qtyMin;
   const unitPrice  = service.price || 0;
   const totalPrice = quantityFieldDef ? unitPrice * effectiveQty : unitPrice;
@@ -163,27 +182,21 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
   const isBalanceSufficient = currentBalance >= totalPrice;
   const remainingBalance    = currentBalance - totalPrice;
 
-  // ─── Condition de blocage bouton Continuer (Credit uniquement) ────────────
+  // ─── Blocage bouton Continuer (Credit uniquement) ─────────────────────────
   const isContinueDisabled = !isBalanceSufficient || (category === 'Credit' && effectiveQty < qtyMin);
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
-
-  // Bloque la saisie au-dessus du max uniquement pendant la frappe
   const handleFieldChange = (e) => {
     const { name, value } = e.target;
     const field = formFieldDefs.find(f => f.name === name);
 
     if (field && field.type === 'number') {
-      if (value === '') {
-        // Permettre le vide temporaire pendant la frappe
-        setFormFields(prev => ({ ...prev, [name]: '' }));
-        return;
-      }
+      if (value === '') { setFormFields(prev => ({ ...prev, [name]: '' })); return; }
       const numValue = parseInt(value, 10);
       if (!Number.isFinite(numValue)) return;
       // Bloquer au-dessus du max immédiatement
-      const finalValue = field.max !== undefined && numValue > field.max ? field.max : numValue;
-      setFormFields(prev => ({ ...prev, [name]: finalValue }));
+      const capped = field.max !== undefined && numValue > field.max ? field.max : numValue;
+      setFormFields(prev => ({ ...prev, [name]: capped }));
     } else {
       setFormFields(prev => ({ ...prev, [name]: value }));
     }
@@ -194,10 +207,8 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
     const { name } = e.target;
     const field = formFieldDefs.find(f => f.name === name);
     if (!field || field.type !== 'number') return;
-
-    const minVal = field.min ?? 1;
+    const minVal  = field.min ?? 1;
     const current = parseInt(formFields[name], 10);
-
     if (!Number.isFinite(current) || current < minVal) {
       setFormFields(prev => ({ ...prev, [name]: minVal }));
     }
@@ -233,7 +244,7 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
       if (field.name === 'quantity' && field.type === 'number') {
         const n = parseInt(value, 10);
         if (!Number.isFinite(n)) {
-          setError(`⚠️ Quantité invalide — "${field.label}" doit être un nombre entier.`);
+          setError(`⚠️ Quantité invalide — doit être un nombre entier.`);
           return false;
         }
         if (n < qtyMin) {
@@ -250,23 +261,23 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
   };
 
   const parseOrderError = (err) => {
-    const serverMessage = err?.response?.data?.message || err?.response?.data?.error || '';
-    if (err?.response && serverMessage) {
-      const msgLower = serverMessage.toLowerCase();
-      if (msgLower.includes('quantité minimale') || msgLower.includes('minimum')) return `⚠️ Quantité minimale insuffisante\n\n${serverMessage}`;
-      if (msgLower.includes('quantité maximale') || msgLower.includes('maximum')) return `⚠️ Quantité maximale dépassée\n\n${serverMessage}`;
-      if (msgLower.includes('solde') || msgLower.includes('balance') || msgLower.includes('insuffisant')) return `💰 Solde insuffisant\n\n${serverMessage}`;
-      if (msgLower.includes('requis') || msgLower.includes('required')) return `📋 Champ obligatoire manquant\n\n${serverMessage}`;
-      if (msgLower.includes('imei')) return `📱 IMEI invalide\n\n${serverMessage}`;
-      if (msgLower.includes('email')) return `📧 Email invalide\n\n${serverMessage}`;
-      return `❌ Erreur\n\n${serverMessage}`;
+    const msg = err?.response?.data?.message || err?.response?.data?.error || '';
+    if (err?.response && msg) {
+      const m = msg.toLowerCase();
+      if (m.includes('minimum'))      return `⚠️ Quantité minimale insuffisante\n\n${msg}`;
+      if (m.includes('maximum'))      return `⚠️ Quantité maximale dépassée\n\n${msg}`;
+      if (m.includes('solde') || m.includes('insuffisant')) return `💰 Solde insuffisant\n\n${msg}`;
+      if (m.includes('requis'))       return `📋 Champ obligatoire manquant\n\n${msg}`;
+      if (m.includes('imei'))         return `📱 IMEI invalide\n\n${msg}`;
+      if (m.includes('email'))        return `📧 Email invalide\n\n${msg}`;
+      return `❌ Erreur\n\n${msg}`;
     }
-    if (!err?.response) return `🌐 Erreur de connexion\n\nVérifiez votre connexion Internet et réessayez.`;
-    const status = err.response?.status;
-    if (status === 401) return `🔐 Non authentifié\n\nVeuillez vous connecter et réessayer.`;
-    if (status === 403) return `🚫 Accès refusé`;
-    if (status === 404) return `🔍 Service introuvable`;
-    if (status >= 500)  return `⚠️ Erreur serveur\n\nVeuillez réessayer plus tard.`;
+    if (!err?.response) return `🌐 Erreur de connexion\n\nVérifiez votre connexion Internet.`;
+    const s = err.response?.status;
+    if (s === 401) return `🔐 Non authentifié`;
+    if (s === 403) return `🚫 Accès refusé`;
+    if (s === 404) return `🔍 Service introuvable`;
+    if (s >= 500)  return `⚠️ Erreur serveur\n\nVeuillez réessayer plus tard.`;
     return `❌ Erreur inattendue\n\nVeuillez réessayer.`;
   };
 
@@ -275,9 +286,8 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
       setError('💰 Solde insuffisant\n\nVeuillez recharger votre compte pour continuer.');
       return;
     }
-    // Blocage quantité minimale pour Credit
     if (category === 'Credit' && quantityFieldDef && effectiveQty < qtyMin) {
-      setError(`⚠️ Quantité invalide — champ "Quantité"\n\nLa quantité minimale est ${qtyMin} crédit(s).\nValeur actuelle : ${effectiveQty}. Veuillez augmenter la quantité.`);
+      setError(`⚠️ Quantité invalide — champ "Quantité"\n\nLa quantité minimale est ${qtyMin} crédit(s).\nValeur actuelle : ${effectiveQty}.`);
       return;
     }
     if (validateForm()) { setError(''); setStep(2); }
@@ -287,14 +297,12 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
     e?.preventDefault();
     setLoading(true);
     setError('');
-
     try {
       const orderResponse = await orderService.placeOrder({
         serviceId: service._id,
         userSubmittedData: formFields,
         quantity: effectiveQty,
       });
-
       if (selectedFile) {
         const formData = new FormData();
         formData.append('document', selectedFile);
@@ -303,7 +311,6 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
           onUploadProgress: (e) => setUploadProgress(Math.round((e.loaded * 100) / e.total)),
         });
       }
-
       if (updateUserBalance) updateUserBalance(orderResponse.data.newBalance);
       setSuccess('Commande confirmée avec succès !');
       setStep(3);
@@ -318,7 +325,7 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
 
   // ─── Rendu des champs ─────────────────────────────────────────────────────
   const renderField = (field) => {
-    // Champ number avec min/max → affichage avec boutons +/−
+    // Champ number avec min/max → boutons +/−
     if (field.type === 'number' && (field.min !== undefined || field.max !== undefined)) {
       const minVal = field.min ?? 1;
       const maxVal = field.max;
@@ -336,13 +343,8 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
           </label>
 
           <div className="flex items-center gap-2">
-            {/* Bouton − bloqué au min */}
-            <button
-              type="button"
-              onClick={() => {
-                const newVal = Math.max(minVal, displayValue - 1);
-                setFormFields(prev => ({ ...prev, [field.name]: newVal }));
-              }}
+            <button type="button"
+              onClick={() => setFormFields(prev => ({ ...prev, [field.name]: Math.max(minVal, displayValue - 1) }))}
               disabled={displayValue <= minVal}
               className="flex-shrink-0 w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               title={`Minimum : ${minVal}`}
@@ -361,9 +363,7 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
               className="flex-1 text-center px-3 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white text-sm font-semibold"
             />
 
-            {/* Bouton + bloqué au max */}
-            <button
-              type="button"
+            <button type="button"
               onClick={() => {
                 const newVal = maxVal !== undefined ? Math.min(maxVal, displayValue + 1) : displayValue + 1;
                 setFormFields(prev => ({ ...prev, [field.name]: newVal }));
@@ -376,7 +376,6 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
             </button>
           </div>
 
-          {/* Info plage */}
           <div className="px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
             <p className="text-xs text-blue-700 dark:text-blue-300">
               Valeur : <span className="font-semibold">{displayValue}</span> — Plage : <span className="font-semibold">{minVal}</span> à <span className="font-semibold">{maxVal ?? '∞'}</span>
@@ -385,8 +384,7 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
 
           {field.helpText && (
             <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-              <Info className="w-3 h-3 flex-shrink-0" />
-              {field.helpText}
+              <Info className="w-3 h-3 flex-shrink-0" />{field.helpText}
             </p>
           )}
         </div>
@@ -400,48 +398,29 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
           {field.label}
           {field.required && <span className="text-red-500 ml-1">*</span>}
         </label>
-
         {field.type === 'select' ? (
-          <select
-            name={field.name}
-            value={formFields[field.name] || ''}
-            onChange={handleFieldChange}
-            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white text-sm"
-          >
+          <select name={field.name} value={formFields[field.name] || ''} onChange={handleFieldChange}
+            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white text-sm">
             <option value="">Sélectionnez...</option>
-            {field.options?.map(opt => (
-              <option key={opt.value ?? opt} value={opt.value ?? opt}>{opt.label ?? opt}</option>
-            ))}
+            {field.options?.map(opt => <option key={opt.value ?? opt} value={opt.value ?? opt}>{opt.label ?? opt}</option>)}
           </select>
         ) : field.type === 'textarea' ? (
-          <textarea
-            name={field.name}
-            value={formFields[field.name] || ''}
-            onChange={handleFieldChange}
-            placeholder={field.placeholder}
-            rows={3}
-            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white text-sm resize-none"
-          />
+          <textarea name={field.name} value={formFields[field.name] || ''} onChange={handleFieldChange}
+            placeholder={field.placeholder} rows={3}
+            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white text-sm resize-none" />
         ) : (
           <div className="relative">
-            <input
-              type={field.type || 'text'}
-              name={field.name}
-              value={formFields[field.name] || ''}
-              onChange={handleFieldChange}
-              placeholder={field.placeholder}
-              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white text-sm"
-            />
+            <input type={field.type || 'text'} name={field.name} value={formFields[field.name] || ''}
+              onChange={handleFieldChange} placeholder={field.placeholder}
+              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white text-sm" />
             {field.helpText && field.name === 'imei' && (
               <HelpCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 cursor-help" title={field.helpText} />
             )}
           </div>
         )}
-
         {field.helpText && field.name !== 'imei' && (
           <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-            <Info className="w-3 h-3 flex-shrink-0" />
-            {field.helpText}
+            <Info className="w-3 h-3 flex-shrink-0" />{field.helpText}
           </p>
         )}
       </div>
@@ -450,14 +429,13 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
 
   const renderInstructions = (text) => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const parts = text.split(urlRegex);
-    return parts.map((part, i) =>
-      urlRegex.test(part) ? (
-        <a key={i} href={part} target="_blank" rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-blue-500 hover:text-blue-600 underline underline-offset-2 break-all">
-          {part}<ExternalLink className="w-3 h-3 flex-shrink-0" />
-        </a>
-      ) : <span key={i}>{part}</span>
+    return text.split(urlRegex).map((part, i) =>
+      urlRegex.test(part)
+        ? <a key={i} href={part} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-blue-500 hover:text-blue-600 underline underline-offset-2 break-all">
+            {part}<ExternalLink className="w-3 h-3 flex-shrink-0" />
+          </a>
+        : <span key={i}>{part}</span>
     );
   };
 
@@ -581,11 +559,9 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
                   <div className="flex items-start gap-3">
                     <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
                     <div className="flex-1">
-                      {error.split('\n').map((line, idx) => (
-                        line.trim() && (
-                          <p key={idx} className="text-sm text-red-600 dark:text-red-400 font-medium mb-1">{line}</p>
-                        )
-                      ))}
+                      {error.split('\n').map((line, idx) =>
+                        line.trim() && <p key={idx} className="text-sm text-red-600 dark:text-red-400 font-medium mb-1">{line}</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -596,12 +572,8 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
                   className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium">
                   Annuler
                 </button>
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  disabled={isContinueDisabled}
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium flex items-center justify-center gap-2 group"
-                >
+                <button type="button" onClick={handleNext} disabled={isContinueDisabled}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium flex items-center justify-center gap-2 group">
                   Continuer
                   <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </button>
@@ -656,11 +628,10 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
                 <button type="button" onClick={handleSubmit}
                   disabled={loading || !isBalanceSufficient || effectiveQty < qtyMin}
                   className="flex-1 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all text-sm font-medium">
-                  {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <Loader className="w-4 h-4 animate-spin" /> Traitement...
-                    </span>
-                  ) : 'Confirmer la commande'}
+                  {loading
+                    ? <span className="flex items-center justify-center gap-2"><Loader className="w-4 h-4 animate-spin" /> Traitement...</span>
+                    : 'Confirmer la commande'
+                  }
                 </button>
               </div>
             </div>
@@ -696,7 +667,6 @@ const ServiceModal = ({ isOpen, onClose, service, userBalance }) => {
 };
 
 export default ServiceModal;
-
 // // src/components/ServiceModal.jsx
 // import { useState, useEffect } from 'react';
 // import {
