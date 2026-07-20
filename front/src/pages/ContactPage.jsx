@@ -66,7 +66,7 @@ const ContactPage = () => {
               </div>
               <div className="flex items-start">
                 <span className="mt-1 mr-3 text-blue-600">📞</span>
-                <p className="text-gray-700">621-60-53-43</p>
+                <p className="text-gray-700">612-56-37-02</p>
               </div>
             </div>
             <p className="text-gray-600">

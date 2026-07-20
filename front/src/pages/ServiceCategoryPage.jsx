@@ -74,7 +74,7 @@ const ServiceCategoryPage = () => {
     },
     'Server': {
       title: 'Services Serveur',
-      description: 'Infrastructure cloud et services de serveur hébergés',
+      description: 'Activer la licence de vos logiciels et outils de déblocage',
       icon: Server,
       color: 'from-orange-500 to-amber-500',
       bgColor: 'from-orange-600 to-amber-600',
@@ -90,7 +90,7 @@ const ServiceCategoryPage = () => {
     },
     'Credit': {
       title: 'Crédits Logiciels',
-      description: 'Crédits pour vos outils de déblocage (TFM Tool Pro, etc.)',
+      description: 'Crédits pour vos outils de déblocage et logiciels',
       icon: Key,
       color: 'from-green-500 to-emerald-500',
       bgColor: 'from-green-600 to-emerald-600',
