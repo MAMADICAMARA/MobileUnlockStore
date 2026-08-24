@@ -1,0 +1,32 @@
+# Dépendances — jamais suivies, régénérées via npm install
+node_modules/
+
+# Variables d'environnement — contiennent des secrets (clés API, mots de passe DB, JWT)
+.env
+.env.local
+.env.*.local
+back/.env
+front/.env
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+*.local
+dist-ssr
+
+# Éditeurs
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
