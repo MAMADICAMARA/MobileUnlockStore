@@ -26,6 +26,11 @@ import {
   ChevronRight,
   Sun,
   Moon,
+  Zap,
+  Link2,
+  Activity,
+  Wallet,
+  History,
 } from 'lucide-react';
 
 // ─── Hook thème (dark/light) ──────────────────────────────────────────────────
@@ -92,12 +97,17 @@ const AdminLayout = () => {
     { to: "/admin/orders?category=Credit", icon: ShoppingBag, label: "Crédit", color: "from-pink-400 to-rose-400" },
     { to: "/admin/search-order", icon: Search, label: "Rechercher Commande", color: "from-indigo-400 to-purple-400" },
     { to: "/admin/users", icon: Users, label: "Clients", color: "from-cyan-400 to-blue-400" },
+    { to: "/admin/providers", icon: Zap, label: "Fournisseurs API", color: "from-lime-400 to-green-400" },
+    { to: "/admin/providers-mapping", icon: Link2, label: "Association services", color: "from-lime-400 to-green-400" },
+    { to: "/admin/providers-dashboard", icon: Activity, label: "Dashboard fournisseurs", color: "from-lime-400 to-green-400" },
+    { to: "/admin/payment-providers", icon: Wallet, label: "Paiements", color: "from-teal-400 to-emerald-400" },
+    { to: "/admin/payment-transactions", icon: History, label: "Historique paiements", color: "from-teal-400 to-emerald-400" },
     { to: "/admin/licenses", icon: Key, label: "Licences", color: "from-amber-400 to-orange-400" },
     { to: "/admin/remote", icon: Globe, label: "Remote", color: "from-teal-400 to-cyan-400" },
-    { to: "/admin/payments", icon: CreditCard, label: "Paiements", color: "from-emerald-400 to-green-400" },
+
     { to: "/admin/content", icon: FileText, label: "Contenu du site", color: "from-violet-400 to-purple-400" },
     { to: "/admin/support", icon: Headphones, label: "Support", color: "from-red-400 to-pink-400" },
-    { to: "/admin/admins", icon: Shield, label: "Admins", color: "from-slate-400 to-gray-400" },
+    
     { to: "/admin/change-role", icon: UserCog, label: "Gestion des rôles", color: "from-fuchsia-400 to-pink-400" },
     { to: "/admin/employees", icon: Briefcase, label: "Employés", color: "from-blue-400 to-indigo-400" },
   ];

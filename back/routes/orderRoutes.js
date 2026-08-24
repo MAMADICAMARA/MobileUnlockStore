@@ -6,6 +6,8 @@ const Order    = require('../models/Order');
 const Service  = require('../models/Service');
 const User     = require('../models/User');
 const Notification = require('../models/Notification');
+const ProviderService = require('../models/ProviderService');
+const { sendOrderToProvider, notifyAllAdmins } = require('../services/providerService');
 
 // ─── Utilitaire notification ──────────────────────────────────────────────────
 const createNotification = async ({ userId, title, message, type = 'info' }) => {
@@ -191,6 +193,29 @@ router.post('/', protect, async (req, res) => {
         : `Votre commande "${service.name}" a été passée. Montant débité : ${new Intl.NumberFormat('fr-FR').format(finalAmount)} FG.`,
       type: 'success',
     });
+
+    // ─── AJOUT : Notification admin + envoi automatique au fournisseur si configuré ───
+    // Ne bloque jamais la réponse au client — la structure existante (flux manuel) reste inchangée.
+    notifyAllAdmins({
+      title:   '🛒 Nouvelle commande reçue',
+      message: `${user.name} a commandé "${service.name}"${finalQty > 1 ? ` (${finalQty} crédits)` : ''} — ${new Intl.NumberFormat('fr-FR').format(finalAmount)} FG.`,
+      type: 'info',
+    }).catch(err => console.warn('[ORDER] Notification admin non envoyée:', err.message));
+
+    ProviderService.findOne({ serviceId, isActive: true }).populate('providerId')
+      .then(providerLink => {
+        if (providerLink && providerLink.providerId?.isActive) {
+          // Flux automatique — envoi en arrière-plan, ne bloque jamais la réponse au client
+          sendOrderToProvider(order, providerLink).catch(err => {
+            console.error('[PROVIDER] Erreur envoi fournisseur:', err.message);
+          });
+        } else {
+          // Flux manuel — comportement existant, on ne fait rien de plus
+          console.log(`[ORDER] Traitement manuel pour la commande ${order._id}`);
+        }
+      })
+      .catch(err => console.error('[PROVIDER] Erreur vérification association fournisseur:', err.message));
+    // ─── FIN AJOUT ─────────────────────────────────────────────────────────────────────
 
     res.status(201).json({
       success:    true,

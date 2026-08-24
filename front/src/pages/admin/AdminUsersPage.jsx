@@ -1,6 +1,6 @@
 // src/pages/admin/AdminUsersPage.jsx
-import { useState, useEffect } from 'react';
-import { Search, Eye, User, Mail, Calendar, CreditCard, Shield, Hash, XCircle, Lock, Unlock, Wrench } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Search, Eye, User, Mail, Calendar, CreditCard, Shield, Hash, XCircle, Lock, Unlock, Wrench, ChevronLeft, ChevronRight } from 'lucide-react';
 import adminService from '../../services/adminService';
 
 const formatDate = (d) => d
@@ -26,39 +26,58 @@ const AdminUsersPage = () => {
   const [searchTerm, setSearchTerm]     = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [userOrders, setUserOrders]     = useState([]);
+  const [page, setPage]                 = useState(1);
+  const [pagination, setPagination]     = useState({ total: 0, pages: 1, limit: 20 });
 
+  // Commandes chargées une seule fois, pour compter les commandes par client
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchOrders = async () => {
+      try {
+        const ordersRes = await adminService.getAllOrders({ limit: 100 });
+        setOrders(ordersRes.data?.data || ordersRes.data || []);
+      } catch (error) {
+        console.error('Erreur chargement commandes:', error);
+      }
+    };
+    fetchOrders();
+  }, []);
+
+  // Utilisateurs paginés côté serveur
+  useEffect(() => {
+    const fetchUsers = async () => {
       setLoading(true);
       try {
-        const [usersRes, ordersRes] = await Promise.all([
-          adminService.getAllUsers(),
-          adminService.getAllOrders(),
-        ]);
-        const usersData  = usersRes.data?.data || usersRes.data || [];
-        const ordersData = ordersRes.data?.data || ordersRes.data || [];
-
-        const orderCountMap = {};
-        ordersData.forEach(order => {
-          const uid = order.user?._id || order.user || order.userId;
-          if (uid) orderCountMap[uid] = (orderCountMap[uid] || 0) + 1;
-        });
-
-        setUsers(usersData.map(u => ({ ...u, orderCount: orderCountMap[u._id] || 0 })));
-        setOrders(ordersData);
+        const usersRes = await adminService.getAllUsers({ page, limit: 20 });
+        const usersData = usersRes.data?.data || usersRes.data || [];
+        setUsers(usersData);
+        if (usersRes.data?.pagination) setPagination(usersRes.data.pagination);
       } catch (error) {
-        console.error('Erreur chargement:', error);
+        console.error('Erreur chargement utilisateurs:', error);
       } finally {
         setLoading(false);
       }
     };
-    fetchData();
-  }, []);
+    fetchUsers();
+  }, [page]);
+
+  const orderCountMap = useMemo(() => {
+    const map = {};
+    orders.forEach(order => {
+      const uid = order.user?._id || order.user || order.userId;
+      if (uid) map[uid] = (map[uid] || 0) + 1;
+    });
+    return map;
+  }, [orders]);
 
   const filteredUsers = users.filter(u =>
     u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const goToPage = (p) => {
+    if (p < 1 || p > pagination.pages || p === page) return;
+    setPage(p);
+  };
 
   const handleViewDetails = (user) => {
     const uOrders = orders.filter(o => {
@@ -104,7 +123,7 @@ const AdminUsersPage = () => {
       {/* En-tête */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Gestion des Clients</h1>
-        <span className="text-sm text-gray-500">{filteredUsers.length} utilisateur(s)</span>
+        <span className="text-sm text-gray-500">{pagination.total || filteredUsers.length} utilisateur(s)</span>
       </div>
 
       {/* Recherche */}
@@ -163,7 +182,7 @@ const AdminUsersPage = () => {
                       <td className="px-4 py-4 text-sm font-medium text-gray-900">{formatCurrency(user.balance)}</td>
                       {/* Commandes */}
                       <td className="px-4 py-4 text-center">
-                        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 text-sm font-bold">{user.orderCount}</span>
+                        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 text-sm font-bold">{orderCountMap[user._id] || 0}</span>
                       </td>
                       {/* Date */}
                       <td className="px-4 py-4 text-sm text-gray-500">{formatDate(user.createdAt)}</td>
@@ -206,6 +225,25 @@ const AdminUsersPage = () => {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {!loading && pagination.pages > 1 && (
+        <div className="flex items-center justify-between gap-3">
+          <button
+            onClick={() => goToPage(page - 1)}
+            disabled={page <= 1}
+            className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition disabled:opacity-40 disabled:cursor-not-allowed">
+            <ChevronLeft className="w-4 h-4" /> Précédent
+          </button>
+          <span className="text-sm text-gray-500">Page {pagination.page || page} sur {pagination.pages}</span>
+          <button
+            onClick={() => goToPage(page + 1)}
+            disabled={page >= pagination.pages}
+            className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition disabled:opacity-40 disabled:cursor-not-allowed">
+            Suivant <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* ── Modal détails ── */}
       {selectedUser && (

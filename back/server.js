@@ -58,4 +58,16 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+
+  // ─── Services automatiques fournisseurs (polling + retry) ──────────────────
+  const { startPolling }      = require('./services/pollingService');
+  const { startRetryService } = require('./services/retryService');
+  startPolling();
+  startRetryService();
+
+  // ─── Providers de paiement connus (pré-créés, inactifs par défaut) ─────────
+  const { seedPaymentProviders } = require('./controllers/paymentProviderController');
+  seedPaymentProviders()
+    .then(() => console.log('✅ Providers de paiement initialisés (PayDunya, CinetPay, Binance Pay, Stripe)'))
+    .catch(err => console.error('❌ Erreur seed providers de paiement:', err.message));
 });

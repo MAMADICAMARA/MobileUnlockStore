@@ -25,12 +25,31 @@ const OrderSchema = new mongoose.Schema({
   },
 
   // ✅ Statuts uniquement en français — base migrée
+  // Échoué/Rejeté ajoutés pour le flux automatique fournisseur (statusMapping)
   status: {
     type: String,
-    enum: ['en cours', 'En cours', 'Terminé', 'Annulé', 'Remboursé'],
+    enum: ['en cours', 'En cours', 'Terminé', 'Annulé', 'Remboursé', 'Échoué', 'Rejeté'],
     default: 'En cours',
     index: true,
   },
+
+  // ─── Flux automatique fournisseur (null si traitement manuel) ─────────────
+  providerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Provider',
+    default: null,
+  },
+  providerOrderId: { type: String, default: null },
+  providerStatus:  { type: String, default: null },
+  providerResponse: { type: mongoose.Schema.Types.Mixed, default: null },
+  providerError:    { type: String, default: null },
+
+  retryCount:  { type: Number, default: 0 },
+  lastRetryAt: { type: Date, default: null },
+  nextRetryAt: { type: Date, default: null },
+
+  sentToProviderAt: { type: Date, default: null },
+  // ────────────────────────────────────────────────────────────────────────
 
   userSubmittedData: {
     type: Map,

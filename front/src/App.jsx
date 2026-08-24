@@ -48,6 +48,15 @@ import AdminChangeRolePage from './pages/admin/AdminChangeRolePage';
 import AdminSearchOrderPage from './pages/admin/AdminSearchOrderPage';
 import AdminEmployeesPage from './pages/admin/AdminEmployeesPage';
 import AdminOrderDetailsPage from './pages/admin/AdminOrderDetailsPage'; // Page de détail d'une commande admin
+import Providers from './pages/admin/Providers';
+import ProviderForm from './pages/admin/ProviderForm';
+import ProviderServiceMapping from './pages/admin/ProviderServiceMapping';
+import ProviderDashboard from './pages/admin/ProviderDashboard';
+import PaymentProvidersPage from './pages/admin/PaymentProvidersPage';
+import PaymentProviderConfig from './pages/admin/PaymentProviderConfig';
+import PaymentTransactionsPage from './pages/admin/PaymentTransactionsPage';
+import PaymentSuccessPage from './pages/payment/PaymentSuccessPage';
+import PaymentFailedPage from './pages/payment/PaymentFailedPage';
 import { NotificationProvider } from './context/NotificationContext';
 import { useAuth } from "./context/AuthContext";
 import OfflineBlocker from './components/OfflineBlocker'; // 👈 Import de notre bloqueur plein écran
@@ -178,7 +187,20 @@ function App() {
           <Route path="change-role" element={<AdminChangeRolePage />} />
           <Route path="employees" element={<AdminEmployeesPage />} />
           <Route path="/admin/refund" element={<AdminRefundPage />} />
+          <Route path="providers" element={<Providers />} />
+          <Route path="providers/new" element={<ProviderForm />} />
+          <Route path="providers/:id/edit" element={<ProviderForm />} />
+          <Route path="providers-mapping" element={<ProviderServiceMapping />} />
+          <Route path="providers-dashboard" element={<ProviderDashboard />} />
+          <Route path="payment-providers" element={<PaymentProvidersPage />} />
+          <Route path="payment-providers/:id" element={<PaymentProviderConfig />} />
+          <Route path="payment-transactions" element={<PaymentTransactionsPage />} />
         </Route>
+
+        {/* Pages de retour de paiement — accessibles à tout utilisateur connecté,
+            quel que soit son rôle (le provider redirige ici après paiement) */}
+        <Route path="/payment/success" element={<PaymentSuccessPage />} />
+        <Route path="/payment/cancel" element={<PaymentFailedPage />} />
       </Routes>
       </SystemProvider>
     </NotificationProvider>

@@ -1,8 +1,9 @@
 // src/pages/client/AddFundsPage.jsx
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, Banknote, History, MessageCircle, Shield, CheckCircle } from 'lucide-react';
+import { CreditCard, Banknote, History, MessageCircle, Shield, CheckCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import paymentService from '../../services/paymentService';
 
 const MIN_AMOUNT = 100000;
 
@@ -14,20 +15,61 @@ const AddFundsPage = () => {
   const [amount, setAmount] = useState(MIN_AMOUNT);
   const [selectedMethod, setSelectedMethod] = useState('admin');
   const [submitted, setSubmitted] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState('');
 
-  const predefinedAmounts = [100000, 200000, 500000, 1000000, 2000000];
+  // ── Paiement automatique (chargé dynamiquement, désactivé par défaut) ──────
+  const [settings, setSettings] = useState(null);
+  const [providers, setProviders] = useState([]);
+
+  useEffect(() => {
+    const loadAutoPayment = async () => {
+      try {
+        const settingsRes = await paymentService.getSettings();
+        setSettings(settingsRes.data.data);
+        if (settingsRes.data.data?.automaticPaymentEnabled) {
+          const providersRes = await paymentService.getProviders();
+          setProviders(providersRes.data.data || []);
+        }
+      } catch (err) {
+        console.error('Erreur chargement paiement automatique:', err);
+      }
+    };
+    loadAutoPayment();
+  }, []);
+
+  const selectedProvider = providers.find(p => p._id === selectedMethod);
+
+  const predefinedAmounts = selectedProvider?.quickAmounts?.length ? selectedProvider.quickAmounts : [100000, 200000, 500000, 1000000, 2000000];
+  const minAmount = selectedProvider?.limits?.minAmount || MIN_AMOUNT;
 
   const paymentMethods = [
-    { id: 'admin', name: 'Contact Admin',     description: 'Contactez admin via WhatsApp pour recharger votre compte', icon: MessageCircle },
-    // { id: 'bank',  name: 'Virement Bancaire', description: 'Virement direct sur notre compte',                    icon: CreditCard },
-    // { id: 'card',  name: 'Carte Bancaire',    description: 'Paiement sécurisé par carte',                         icon: Shield },
+    { id: 'admin', name: 'Contact Admin', description: 'Contactez admin via WhatsApp pour recharger votre compte', icon: MessageCircle },
+    ...providers.map(p => ({
+      id: p._id,
+      name: p.name,
+      description: p.supportedMethods?.join(', ') || 'Paiement en ligne automatique',
+      icon: p.type === 'card' ? Shield : p.type === 'crypto' ? Banknote : CreditCard,
+    })),
   ];
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const feePreview = useMemo(() => {
+    if (!selectedProvider || !settings?.fees?.enabled || !settings.fees.displayToClient) return null;
+    const fees = settings.fees;
+    let f = 0;
+    if (fees.type === 'percentage' || fees.type === 'both') f += amount * (fees.percentage / 100);
+    if (fees.type === 'fixed' || fees.type === 'both') f += fees.fixedAmount;
+    f = Math.round(f);
+    const total = fees.appliedTo === 'client' ? amount + f : amount;
+    return { fees: f, total };
+  }, [selectedProvider, settings, amount]);
 
-    if (!amount || Number(amount) < MIN_AMOUNT) {
-      alert(`Le montant minimum autorisé est de ${formatFG(MIN_AMOUNT)} FG.`);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setPayError('');
+
+    if (!amount || Number(amount) < minAmount) {
+      alert(`Le montant minimum autorisé est de ${formatFG(minAmount)} FG.`);
       return;
     }
 
@@ -38,10 +80,17 @@ const AddFundsPage = () => {
       window.open(`https://wa.me/224612563702?text=${msg}`, '_blank');
       setSubmitted(true);
       setTimeout(() => setSubmitted(false), 3000);
-    } else if (selectedMethod === 'bank') {
-      alert("Virement bancaire : contactez l'admin pour les détails.");
-    } else {
-      alert('Paiement par carte : intégration en cours.');
+      return;
+    }
+
+    // Provider de paiement automatique sélectionné
+    setPaying(true);
+    try {
+      const res = await paymentService.initiate({ providerId: selectedMethod, amount: Number(amount) });
+      window.location.href = res.data.paymentUrl;
+    } catch (err) {
+      setPayError(err.message || 'Erreur lors de l\'initiation du paiement.');
+      setPaying(false);
     }
   };
 
@@ -157,7 +206,7 @@ const AddFundsPage = () => {
                 <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5">
                   <input
                     type="number"
-                    min={MIN_AMOUNT}
+                    min={minAmount}
                     step="1000"
                     value={amount}
                     onChange={(e) => setAmount(Number(e.target.value))}
@@ -167,7 +216,7 @@ const AddFundsPage = () => {
                   <span className="font-bold text-gray-700 dark:text-white text-sm">FG</span>
                 </div>
                 <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
-                  Montant minimum : {formatFG(MIN_AMOUNT)} FG
+                  Montant minimum : {formatFG(minAmount)} FG
                 </p>
               </div>
 
@@ -209,13 +258,27 @@ const AddFundsPage = () => {
               </div>
 
               {/* Résumé */}
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 flex items-baseline justify-between min-w-0 shadow-sm">
-                <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">Montant à recharger</span>
-                <span className="flex items-baseline gap-1 text-lg font-black text-blue-600 dark:text-blue-400 min-w-0 break-words">
-                  {formatFG(amount)}
-                  <span className="text-sm font-semibold">FG</span>
-                </span>
-              </div>
+              {feePreview ? (
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 space-y-1 shadow-sm text-sm">
+                  <div className="flex justify-between text-gray-600 dark:text-gray-300">
+                    <span>Montant souhaité</span><span className="font-medium">{formatFG(amount)} FG</span>
+                  </div>
+                  <div className="flex justify-between text-gray-600 dark:text-gray-300">
+                    <span>Frais applicatifs</span><span className="font-medium">{formatFG(feePreview.fees)} FG</span>
+                  </div>
+                  <div className="flex justify-between text-blue-700 dark:text-blue-300 font-bold pt-1 border-t border-blue-200 dark:border-blue-800">
+                    <span>Total à payer</span><span>{formatFG(feePreview.total)} FG</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 flex items-baseline justify-between min-w-0 shadow-sm">
+                  <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">Montant à recharger</span>
+                  <span className="flex items-baseline gap-1 text-lg font-black text-blue-600 dark:text-blue-400 min-w-0 break-words">
+                    {formatFG(amount)}
+                    <span className="text-sm font-semibold">FG</span>
+                  </span>
+                </div>
+              )}
 
               {/* Succès */}
               {submitted && (
@@ -225,13 +288,21 @@ const AddFundsPage = () => {
                 </div>
               )}
 
+              {/* Erreur paiement */}
+              {payError && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 rounded-xl">
+                  <p className="text-sm text-red-700 dark:text-red-400">{payError}</p>
+                </div>
+              )}
+
               {/* Bouton */}
               <button
                 type="submit"
-                className="w-full py-3 px-6 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg font-bold transition-all flex items-center justify-center gap-2 text-sm"
+                disabled={paying}
+                className="w-full py-3 px-6 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg font-bold transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-60"
               >
-                <Banknote className="w-5 h-5" />
-                Recharger {formatFG(amount)} FG
+                {paying ? <Loader2 className="w-5 h-5 animate-spin" /> : <Banknote className="w-5 h-5" />}
+                {paying ? 'Redirection...' : `Recharger ${formatFG(amount)} FG`}
               </button>
             </form>
 

@@ -13,6 +13,8 @@ const licenseRoutes = require('./routes/licenseRoutes');
 const supportRoutes = require('./routes/supportRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const providerRoutes = require('./routes/providerRoutes');
+const webhookRoutes  = require('./routes/webhookRoutes');
 
 const app = express();
 
@@ -40,7 +42,10 @@ app.use(cors({
 app.options('*', cors());
 
 // ─── Parsers ─────────────────────────────────────────────────────────────────
-app.use(express.json({ limit: '10mb' }));
+// `verify` conserve le corps brut (req.rawBody) — requis pour vérifier la
+// signature des webhooks Stripe et Binance Pay, qui signent les octets exacts
+// reçus (un re-JSON.stringify(req.body) ne redonnerait pas le même résultat).
+app.use(express.json({ limit: '10mb', verify: (req, res, buf) => { req.rawBody = buf; } }));
 app.use(express.urlencoded({ extended: true }));
 
 // ─── Rate Limiting ───────────────────────────────────────────────────────────
@@ -117,6 +122,10 @@ app.use('/api/licenses',      licenseRoutes);
 app.use('/api/support',       supportRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/payments',      paymentRoutes);
+// Fournisseurs API — routes protégées admin définies en interne (voir providerRoutes.js)
+app.use('/api',               providerRoutes);
+// Webhooks fournisseurs — PUBLIC, sécurisé par signature HMAC (pas de JWT)
+app.use('/api/webhook',       webhookRoutes);
 
 // ─── Fichiers statiques (uploads) ────────────────────────────────────────────
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

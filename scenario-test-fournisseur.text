@@ -1,0 +1,267 @@
+════════════════════════════════════════════════════════════════════════════
+ SCÉNARIOS DE TEST — Intégration dynamique des fournisseurs API
+ Système de gestion des commandes de déblocage téléphonique
+════════════════════════════════════════════════════════════════════════════
+
+Ce document décrit 5 scénarios complets, du point de vue du CLIENT, de
+l'ADMIN et du FOURNISSEUR, avec le résultat attendu à chaque étape.
+Ils correspondent au comportement réel du code livré (voir
+back/services/providerService.js, back/controllers/webhookController.js,
+back/services/pollingService.js, back/services/retryService.js).
+
+Légende des acteurs :
+  [CLIENT]      → ce que voit/fait l'utilisateur final sur le site
+  [ADMIN]       → ce que voit/fait l'administrateur (cloche de notif, dashboard)
+  [FOURNISSEUR] → ce qui se passe côté API externe (réelle ou simulée)
+  [BACKEND]     → ce qui se passe en interne, invisible pour les humains
+
+────────────────────────────────────────────────────────────────────────────
+SCÉNARIO 1 — Service SANS fournisseur configuré (flux manuel, inchangé)
+────────────────────────────────────────────────────────────────────────────
+
+Objectif : vérifier la non-régression. Un service qui n'a aucune entrée
+ProviderService active doit se comporter EXACTEMENT comme avant ce chantier.
+
+Prérequis :
+  - Un service "Crédit Serveur X" existe, actif.
+  - Aucune association Service ↔ Fournisseur créée pour ce service
+    (page /admin/providers-mapping → colonne "Fournisseur principal" = Aucun).
+
+Déroulé :
+  1. [CLIENT] Commande "Crédit Serveur X", solde suffisant.
+  2. [BACKEND] Order.create() → solde débité, statut = "En cours".
+  3. [BACKEND] Cherche une association ProviderService active pour ce
+     service → AUCUNE trouvée.
+  4. [BACKEND] Log : "[ORDER] Traitement manuel pour la commande <id>".
+     Aucun appel HTTP sortant n'est fait. Les champs providerId,
+     providerOrderId, etc. restent à null sur la commande.
+  5. [ADMIN] Reçoit une notification "🛒 Nouvelle commande reçue" (comme
+     pour toute commande, auto ou manuelle).
+  6. [ADMIN] Va sur Commandes, ouvre la commande, saisit le résultat
+     (code, identifiants...) et passe le statut à "Terminé" — exactement
+     le flux existant, page AdminOrderDetailsPage.
+  7. [BACKEND] PUT /api/orders/admin/:id → notifie le client "Identifiants
+     disponibles".
+
+Résultat attendu :
+  [CLIENT]      Reçoit sa commande via la notification existante, comme
+                aujourd'hui. Ne voit aucune différence.
+  [ADMIN]       A traité la commande à la main, sans changement d'habitude.
+  [FOURNISSEUR] N'existe pas dans ce scénario — aucun appel réseau émis.
+  [BASE]        order.providerId = null, order.providerOrderId = null,
+                order.status = "Terminé".
+
+────────────────────────────────────────────────────────────────────────────
+SCÉNARIO 2 — Flux automatique réussi via WEBHOOK
+────────────────────────────────────────────────────────────────────────────
+
+Objectif : valider le chemin complet quand le fournisseur préfère
+rappeler le site (callback) plutôt que d'être interrogé.
+
+Prérequis :
+  - Fournisseur "DoctorUnlock" créé (/admin/providers), actif, environnement
+    sandbox, trackingConfig.mode = "webhook", webhookSecret défini.
+  - Service "Déblocage iPhone AT&T" associé à DoctorUnlock via
+    /admin/providers-mapping, code service "ATT_IPH_001".
+  - fieldMapping renseigné (ex: imei → device_imei), statusMapping
+    renseigné (ex: completed → Terminé).
+
+Déroulé :
+  1. [CLIENT] Commande "Déblocage iPhone AT&T", saisit son IMEI, solde débité.
+  2. [BACKEND] Order.create() → statut "En cours".
+  3. [ADMIN] Reçoit "🛒 Nouvelle commande reçue".
+  4. [BACKEND] Trouve l'association active → DoctorUnlock.isActive = true
+     → déclenche sendOrderToProvider() en arrière-plan (la réponse HTTP
+     au client n'attend pas ce traitement).
+  5. [BACKEND] Déchiffre la clé API, construit le corps de requête via
+     fieldMapping ({ device_imei: "351756..." , service_id: "ATT_IPH_001" }),
+     POST vers https://api.doctorunlock.com/v1/order/create.
+  6. [FOURNISSEUR] Répond HTTP 200 avec { order_id: "FOURNISSEUR-98765",
+     status: "processing" }.
+  7. [BACKEND] Sauvegarde providerOrderId = "FOURNISSEUR-98765",
+     providerStatus = "processing", sentToProviderAt = maintenant.
+  8. [ADMIN] Reçoit "📤 Commande envoyée au fournisseur — DoctorUnlock".
+  9. [FOURNISSEUR] Traite le déblocage (délai réel : minutes à jours).
+  10. [FOURNISSEUR] Appelle POST https://<site>/api/webhook/doctorunlock
+      avec en-tête de signature HMAC valide et le corps
+      { order_id: "FOURNISSEUR-98765", status: "completed",
+        unlock_code: "1234-5678" }.
+  11. [BACKEND] Vérifie la signature (HMAC-SHA256 avec webhookSecret) →
+      valide. Retrouve la commande via providerOrderId. Mappe
+      "completed" → "Terminé" via statusMapping. Enregistre le code dans
+      deliveryData.unlockCode. order.completedAt = maintenant.
+  12. [BACKEND] Répond 200 OK au fournisseur immédiatement.
+  13. [CLIENT] Reçoit "✅ Votre déblocage est prêt ! — code: 1234-5678".
+  14. [ADMIN] Reçoit "✅ Commande terminée — résultat livré au client".
+
+Résultat attendu :
+  [CLIENT]      Voit sa commande passer à "Terminé" avec le code
+                1234-5678 visible dans son historique de commandes.
+  [ADMIN]       Dashboard fournisseurs (/admin/providers-dashboard) montre
+                la ligne avec statut "✅ Terminé", tentatives 1/3, et le
+                panneau "Voir" affiche l'ID fournisseur, les deux
+                horodatages (envoyé/terminé) et le code livré.
+  [FOURNISSEUR] A reçu un accusé 200 OK rapide sur son webhook (aucune
+                notion de retente de sa part n'est nécessaire).
+  [BASE]        order.status = "Terminé", providerStatus = "completed",
+                deliveryData contient unlockCode.
+
+────────────────────────────────────────────────────────────────────────────
+SCÉNARIO 3 — Flux automatique réussi via POLLING
+────────────────────────────────────────────────────────────────────────────
+
+Objectif : valider le chemin quand le fournisseur ne propose pas de
+webhook et qu'il faut aller vérifier soi-même le statut.
+
+Prérequis :
+  - Fournisseur "UnlockBase" créé, trackingConfig.mode = "polling",
+    pollingIntervalMinutes = 15, statusEndpoint = "/order/status/{order_id}".
+  - Service "Déblocage Samsung" associé à UnlockBase.
+
+Déroulé :
+  1. [CLIENT] Commande "Déblocage Samsung", solde débité.
+  2. [BACKEND] Envoi automatique identique au scénario 2, étapes 1-8.
+  3. [BACKEND] Comme mode ≠ "webhook", planifie order.nextRetryAt =
+     maintenant + 15 min dès l'envoi réussi.
+  4. [BACKEND] Le service de polling (back/services/pollingService.js)
+     tourne toutes les POLLING_INTERVAL_MS (5 min par défaut) et cherche
+     les commandes "En cours" dont nextRetryAt est dépassé.
+  5. [BACKEND] 1ère vérification (à ~15 min) : GET vers
+     .../order/status/FOURNISSEUR-55555 → { status: "pending" }.
+     "pending" n'est pas dans statusMapping → reste "En cours" par défaut.
+     Replanifie nextRetryAt = +15 min. Aucune notification envoyée
+     (rien n'a changé).
+  6. [FOURNISSEUR] Termine réellement le traitement entre-temps.
+  7. [BACKEND] 2ème vérification (~30 min après l'envoi) : GET →
+     { status: "completed", unlock_code: "9988-7766" }.
+  8. [BACKEND] Même traitement que le webhook : mapping, sauvegarde,
+     notifications client + admin (voir scénario 2, étapes 11-14).
+
+Résultat attendu :
+  [CLIENT]      Ne voit rien pendant ~30 minutes (statut "En cours"),
+                puis reçoit la même notification de succès qu'au
+                scénario 2, avec le code 9988-7766.
+  [ADMIN]       Voit la commande rester "En cours" pendant les cycles de
+                vérification, puis passer à "Terminé" sans avoir rien eu
+                à faire.
+  [FOURNISSEUR] N'a reçu aucun appel de sa part vers le site — c'est le
+                site qui vient l'interroger périodiquement via GET.
+  [BASE]        Deux mises à jour successives de nextRetryAt visibles
+                dans l'historique si on inspecte la commande en base.
+
+────────────────────────────────────────────────────────────────────────────
+SCÉNARIO 4 — Échec chez le fournisseur → tentatives épuisées → remboursement
+────────────────────────────────────────────────────────────────────────────
+
+Objectif : valider la résilience (retry) et la protection du client
+(remboursement automatique) quand le fournisseur ne répond jamais.
+
+Prérequis :
+  - Fournisseur "DoctorUnlock", retryConfig.maxRetries = 3,
+    retryDelays = [60, 300, 900] (secondes), autoRefundOnFailure = true.
+  - Le fournisseur est temporairement en panne (ou mal configuré :
+    mauvaise URL, clé API expirée...).
+
+Déroulé :
+  1. [CLIENT] Commande un service associé à DoctorUnlock, solde débité.
+  2. [BACKEND] Tentative 1 (immédiate) : POST vers l'API → timeout ou
+     erreur HTTP 500. retryCount = 1, providerError enregistré,
+     nextRetryAt = +60 secondes.
+  3. [BACKEND] Service de retry (back/services/retryService.js), toutes
+     les RETRY_CHECK_INTERVAL_MS (1 min par défaut), retrouve cette
+     commande (providerError ≠ null, statut pas terminal, nextRetryAt
+     dépassé) et rappelle sendOrderToProvider().
+  4. [FOURNISSEUR] Tentative 2 (~60s après) : échoue encore.
+     retryCount = 2, nextRetryAt = +300 secondes (5 min).
+  5. [FOURNISSEUR] Tentative 3 (~5 min après) : échoue encore.
+     retryCount = 3 = maxRetries → handleFinalFailure() déclenché.
+  6. [BACKEND] order.status = "Échoué". autoRefundOnFailure = true →
+     recrédite user.balance du montant de la commande, order.status
+     passe à "Remboursé".
+  7. [CLIENT] Notifié "💸 Commande remboursée — a échoué chez le
+     fournisseur, remboursement automatique."
+  8. [ADMIN] Notifié "⚠️ Commande échouée définitivement — DoctorUnlock,
+     après 3 tentative(s)."
+
+Résultat attendu :
+  [CLIENT]      Voit son solde recrédité automatiquement et sa commande
+                marquée "Remboursé" dans son historique, sans avoir eu à
+                contacter le support.
+  [ADMIN]       Dashboard fournisseurs montre la ligne en "❌ Échoué" (ou
+                "💰 Remboursé"), tentatives 3/3. Le panneau "Voir" affiche
+                la dernière erreur technique (providerError) pour
+                diagnostic. Les boutons "Renvoyer manuellement" et
+                "Rembourser" restent disponibles si l'admin veut agir
+                lui-même sur un autre cas similaire.
+  [FOURNISSEUR] N'a jamais traité la commande — aucune commande côté
+                fournisseur (providerOrderId reste null puisque aucune
+                tentative n'a abouti).
+  [BASE]        order.retryCount = 3, order.status = "Remboursé",
+                order.providerError contient le dernier message d'erreur.
+
+────────────────────────────────────────────────────────────────────────────
+SCÉNARIO 5 — Sécurité webhook + reprise manuelle par l'admin
+────────────────────────────────────────────────────────────────────────────
+
+Objectif : vérifier que le webhook public ne peut pas être falsifié, et
+que l'admin garde toujours la main en dernier recours si l'automatisation
+ne se termine pas normalement.
+
+Partie A — Webhook falsifié (sécurité) :
+  1. Un tiers (ou un bug de configuration chez le fournisseur) envoie
+     POST /api/webhook/doctorunlock avec un corps
+     { order_id: "FOURNISSEUR-98765", status: "completed",
+       unlock_code: "0000-0000" } mais SANS le bon secret (signature
+     absente ou incorrecte).
+  2. [BACKEND] Calcule le HMAC attendu avec le webhookSecret réel du
+     fournisseur, le compare (temps constant) à la signature reçue →
+     ne correspond pas → répond 401 "Signature invalide". La commande
+     n'est PAS modifiée.
+
+  Résultat attendu Partie A :
+    [CLIENT]      Ne reçoit aucune notification, sa commande reste dans
+                  l'état où elle était avant l'appel frauduleux.
+    [ADMIN]       Ne reçoit aucune fausse notification de succès. Aucune
+                  trace en base d'un faux code de déblocage.
+    [FOURNISSEUR] (S'il s'agit du vrai fournisseur mal configuré) reçoit
+                  un 401 et doit corriger son secret webhook.
+
+Partie B — Reprise manuelle quand l'automatisation reste bloquée :
+  3. Une vraie commande a été envoyée à un fournisseur en mode "webhook"
+     (scénario 2), mais son callback n'arrive jamais (fournisseur en
+     panne réseau de son côté, ou webhook mal configuré chez lui) — la
+     commande reste "En cours" indéfiniment, sans jamais être reprise
+     par un polling puisque le mode est purement "webhook".
+  4. [ADMIN] Repère la commande bloquée sur /admin/providers-dashboard
+     (filtre par statut "En cours", ancienneté visible via la date
+     d'envoi). Clique "Voir" puis a deux choix :
+       a) "Renvoyer manuellement" → rappelle sendOrderToProvider() tout
+          de suite, sans attendre le prochain cycle de retry.
+       b) "Rembourser" → crédite le client immédiatement et marque la
+          commande "Remboursé", sans dépendre du fournisseur.
+  5. [ADMIN] Choisit (b) après avoir contacté le fournisseur en dehors
+     du site et confirmé que la commande ne sera jamais livrée.
+
+  Résultat attendu Partie B :
+    [CLIENT]      Notifié "💸 Commande remboursée par l'administrateur",
+                  solde recrédité immédiatement.
+    [ADMIN]       Dashboard reflète "Remboursé" instantanément après
+                  l'action, sans attendre de cycle automatique.
+    [FOURNISSEUR] Aucune action requise de sa part — l'admin a repris la
+                  main indépendamment de l'API externe.
+
+════════════════════════════════════════════════════════════════════════════
+ RÉCAPITULATIF — Ce que chaque scénario prouve
+════════════════════════════════════════════════════════════════════════════
+  1. Non-régression du flux manuel existant quand aucun fournisseur
+     n'est configuré.
+  2. Le chemin complet automatique fonctionne de bout en bout en mode
+     webhook (le cas le plus rapide pour le client).
+  3. Le chemin complet automatique fonctionne aussi sans webhook, via
+     vérification active (polling), pour les fournisseurs qui ne
+     proposent pas de callback.
+  4. Le système protège le client financièrement même si le
+     fournisseur ne répond jamais (retry + remboursement automatique).
+  5. Le webhook public ne peut pas être exploité par un tiers non
+     autorisé, et l'admin garde toujours un moyen d'agir manuellement
+     si l'automatisation reste bloquée.
